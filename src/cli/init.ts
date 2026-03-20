@@ -1,9 +1,23 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as p from '@clack/prompts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const prezRoot = resolve(__dirname, '..', '..')
+
+function linkPrezDependency(targetDir: string) {
+  const pkgPath = join(targetDir, 'package.json')
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  pkg.dependencies.prez = `file:${prezRoot}`
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+}
 
 async function main() {
   const args = process.argv.slice(2)
@@ -34,6 +48,7 @@ async function main() {
 
       mkdirSync(target, { recursive: true })
       cpSync(templateDir, target, { recursive: true })
+      linkPrezDependency(target)
 
       console.log(`Created presentation at ${target}`)
       console.log(`\nNext steps:`)
@@ -88,6 +103,7 @@ async function main() {
 
       mkdirSync(target, { recursive: true })
       cpSync(templateDir, target, { recursive: true })
+      linkPrezDependency(target)
 
       s.stop('Presentation scaffolded')
 
