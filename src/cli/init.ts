@@ -1,39 +1,129 @@
-import { cpSync, existsSync, mkdirSync } from 'fs'
-import { resolve, dirname, join } from 'path'
-import { fileURLToPath } from 'url'
+import { cpSync, existsSync, mkdirSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import * as p from '@clack/prompts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const args = process.argv.slice(2)
-const command = args[0]
+async function main() {
+  const args = process.argv.slice(2)
+  const command = args[0]
 
-if (command === 'init') {
-  const target = resolve(process.cwd(), args[1] || 'deck')
+  if (command === 'init') {
+    const positionalName =
+      args[1] && !args[1].startsWith('-') ? args[1] : undefined
+    const isNonInteractive = args.includes('--yes') || args.includes('-y')
 
-  if (existsSync(target)) {
-    console.error(`Error: ${target} already exists.`)
-    process.exit(1)
+    if (isNonInteractive) {
+      // Non-interactive path for CI
+      const target = resolve(process.cwd(), positionalName || 'deck')
+
+      if (existsSync(target)) {
+        console.error(`Error: ${target} already exists.`)
+        process.exit(1)
+      }
+
+      const templateDir = join(__dirname, '..', '..', 'template')
+
+      if (!existsSync(templateDir)) {
+        console.error(
+          'Error: template directory not found. Is the prez package installed correctly?',
+        )
+        process.exit(1)
+      }
+
+      mkdirSync(target, { recursive: true })
+      cpSync(templateDir, target, { recursive: true })
+
+      console.log(`Created presentation at ${target}`)
+      console.log(`\nNext steps:`)
+      console.log(`  cd ${positionalName || 'deck'}`)
+      console.log('  bun install')
+      console.log('  bun run dev')
+    } else {
+      // Interactive wizard
+      p.intro('prez — Create a new presentation')
+
+      const answers = await p.group(
+        {
+          name: () =>
+            p.text({
+              message: 'Deck name',
+              placeholder: 'deck',
+              defaultValue: positionalName || 'deck',
+              validate: (value) => {
+                if (!value) return 'Name is required'
+                if (existsSync(resolve(process.cwd(), value))) {
+                  return `${value} already exists`
+                }
+              },
+            }),
+          imageTools: () =>
+            p.confirm({
+              message:
+                'Include image tools? (prez-image for AI generation, photo search, SVG rendering)',
+              initialValue: true,
+            }),
+        },
+        {
+          onCancel: () => {
+            p.cancel('Setup cancelled.')
+            process.exit(0)
+          },
+        },
+      )
+
+      const target = resolve(process.cwd(), answers.name)
+      const templateDir = join(__dirname, '..', '..', 'template')
+
+      if (!existsSync(templateDir)) {
+        p.cancel(
+          'Template directory not found. Is the prez package installed correctly?',
+        )
+        process.exit(1)
+      }
+
+      const s = p.spinner()
+      s.start('Scaffolding presentation')
+
+      mkdirSync(target, { recursive: true })
+      cpSync(templateDir, target, { recursive: true })
+
+      s.stop('Presentation scaffolded')
+
+      const nextSteps = [`cd ${answers.name}`, 'bun install', 'bun run dev']
+
+      p.note(nextSteps.join('\n'), 'Next steps')
+
+      if (answers.imageTools) {
+        p.note(
+          [
+            'prez-image is available via bunx prez-image after install.',
+            '',
+            'Commands:',
+            '  bunx prez-image gen "prompt" -o public/image.png    Generate with AI (free)',
+            '  bunx prez-image search "query" -o public/photo.jpg  Search royalty-free photos',
+            '  bunx prez-image render input.svg -o public/out.png  Render SVG to PNG',
+            '',
+            'For photo search, set one of these environment variables:',
+            '  export UNSPLASH_ACCESS_KEY="your-key"   # https://unsplash.com/developers',
+            '  export PEXELS_API_KEY="your-key"         # https://www.pexels.com/api/',
+          ].join('\n'),
+          'Image tools',
+        )
+      }
+
+      p.outro('Happy presenting!')
+    }
+  } else {
+    console.log('prez - Zero-opinion presentation engine for AI\n')
+    console.log('Usage:')
+    console.log(
+      '  prez init [name]         Scaffold a new presentation (default: ./deck)',
+    )
+    console.log('  prez init [name] --yes   Non-interactive mode (for CI)')
+    console.log('')
   }
-
-  // template/ is at the package root, CLI is in dist/cli/
-  const templateDir = join(__dirname, '..', '..', 'template')
-
-  if (!existsSync(templateDir)) {
-    console.error('Error: template directory not found. Is the prez package installed correctly?')
-    process.exit(1)
-  }
-
-  mkdirSync(target, { recursive: true })
-  cpSync(templateDir, target, { recursive: true })
-
-  console.log(`\nCreated presentation at ${target}\n`)
-  console.log('Next steps:')
-  console.log(`  cd ${args[1] || 'deck'}`)
-  console.log('  npm install')
-  console.log('  npm run dev\n')
-} else {
-  console.log('prez - Zero-opinion presentation engine for AI\n')
-  console.log('Usage:')
-  console.log('  prez init [path]    Scaffold a new presentation (default: ./deck)')
-  console.log('')
 }
+
+main()

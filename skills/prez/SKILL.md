@@ -23,7 +23,7 @@ If no `deck/` folder exists in the project, scaffold one:
 curl -fsSL https://raw.githubusercontent.com/Enriquefft/prez/main/setup.sh | sh
 ```
 
-Then `cd deck && npm install && npm run dev` to start the dev server at localhost:5173.
+Then `cd deck && bun install && bun run dev` to start the dev server at localhost:5173.
 
 ## API
 
@@ -123,6 +123,19 @@ deck/
 ## Export
 
 ```bash
-npm run build          # Static SPA, deploy anywhere
-npm run export:pdf     # PDF via Puppeteer
+bun run build          # Static SPA, deploy anywhere
+bun run export:pdf     # PDF via system Chrome
+bun run export:pptx    # PPTX via system Chrome + pptxgenjs
 ```
+
+## Image tools
+
+prez includes `prez-image` for getting images into slides. See `skills/prez-image/SKILL.md` for full docs.
+
+```bash
+bunx prez-image gen "prompt" -o deck/public/hero.png       # AI-generated image (free)
+bunx prez-image search "query" -o deck/public/photo.jpg    # Royalty-free photo search
+bunx prez-image render diagram.svg -o deck/public/out.png  # SVG to PNG
+```
+
+Save images to `deck/public/` and reference as `<img src="/hero.png" />`.

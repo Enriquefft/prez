@@ -1,4 +1,4 @@
-import React, { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 export interface SlideProps {
   className?: string

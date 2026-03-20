@@ -23,13 +23,13 @@ Scaffold a deck in any project:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Enriquefft/prez/main/setup.sh | sh
-cd deck && npm install && npm run dev
+cd deck && bun install && bun run dev
 ```
 
 Teach your AI agent the API (works with Claude Code, Cursor, Copilot, Windsurf, and [20+ others](https://skills.sh)):
 
 ```bash
-npx skills add Enriquefft/prez
+bunx skills add Enriquefft/prez
 ```
 
 Then just ask:
@@ -128,12 +128,35 @@ Read deck state from inside a slide:
 const { currentSlide, totalSlides, next, prev, goTo } = useDeck()
 ```
 
+## Image tools
+
+`prez-image` generates, searches, and renders images for your slides.
+
+```bash
+bunx prez-image gen "a dark futuristic cityscape, minimal" -o deck/public/hero.png     # AI generation (free, via Pollinations)
+bunx prez-image search "team collaboration office" -o deck/public/team.jpg             # Royalty-free photo search
+bunx prez-image render diagram.svg -o deck/public/diagram.png                          # SVG to PNG
+```
+
+**When to use each:**
+
+| Command | Use for |
+|---|---|
+| `gen` | Custom/conceptual images that don't exist (illustrations, abstract art, scenes) |
+| `search` | Real photographs (people, places, nature). Requires `UNSPLASH_ACCESS_KEY` or `PEXELS_API_KEY` |
+| `render` | Diagrams, charts, icons you've written as SVG |
+
+Images saved to `deck/public/` are served at the root path: `<img src="/hero.png" />`.
+
 ## Export
 
 ```bash
-npm run build          # static site, deploy to Vercel/Netlify/GitHub Pages
-npm run export:pdf     # PDF via Puppeteer
+bun run build          # static site, deploy to Vercel/Netlify/GitHub Pages
+bun run export:pdf     # PDF via system Chrome (zero deps)
+bun run export:pptx    # PPTX via system Chrome + pptxgenjs
 ```
+
+Export uses your system Chrome/Chromium headless — no Puppeteer needed. Set `CHROME_PATH` if Chrome isn't in a standard location.
 
 ## Project structure
 

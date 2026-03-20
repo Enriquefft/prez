@@ -10,7 +10,7 @@ export default defineConfig([
     external: ['react', 'react-dom'],
   },
   {
-    entry: ['src/cli/init.ts'],
+    entry: ['src/cli/init.ts', 'src/cli/image.ts'],
     format: ['esm'],
     banner: { js: '#!/usr/bin/env node' },
     outDir: 'dist/cli',

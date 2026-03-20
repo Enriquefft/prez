@@ -1,8 +1,8 @@
 import React, {
   Children,
-  CSSProperties,
-  ReactElement,
-  ReactNode,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -12,8 +12,8 @@ import React, {
 import { DeckContext } from '../context'
 import { useNavigation } from '../hooks/use-navigation'
 import { usePresenter } from '../hooks/use-presenter'
-import { Notes } from './Notes'
 import { Presenter } from '../presenter/Presenter'
+import { Notes } from './Notes'
 
 export interface DeckProps {
   aspectRatio?: string
@@ -39,6 +39,12 @@ export function Deck({
   const { current, goTo, next, prev, containerRef } = useNavigation(totalSlides)
   const { isPresenter, broadcast, registerNotes } = usePresenter(current, goTo)
 
+  // Detect print mode via ?print=true URL param
+  const [isPrint] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('print') === 'true'
+  })
+
   // Broadcast slide changes
   const prevSlide = useRef(current)
   useEffect(() => {
@@ -56,10 +62,10 @@ export function Deck({
         (slide as ReactElement<{ children?: ReactNode }>).props.children,
         (child) => {
           if (React.isValidElement(child) && child.type === Notes) {
-            const notesChildren = (child as ReactElement<{ children?: ReactNode }>).props.children
-            note = typeof notesChildren === 'string'
-              ? notesChildren
-              : ''
+            const notesChildren = (
+              child as ReactElement<{ children?: ReactNode }>
+            ).props.children
+            note = typeof notesChildren === 'string' ? notesChildren : ''
           }
         },
       )
@@ -71,15 +77,16 @@ export function Deck({
     registerNotes(slideNotes)
   }, [slideNotes, registerNotes])
 
-  // Scaling
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-
   const [arW, arH] = aspectRatio.split('/').map(Number)
   const slideWidth = 1280
   const slideHeight = slideWidth * (arH / arW)
 
+  // Scaling (hooks must be called unconditionally)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
   useLayoutEffect(() => {
+    if (isPrint || isPresenter) return
     const el = viewportRef.current
     if (!el) return
 
@@ -90,7 +97,7 @@ export function Deck({
 
     observer.observe(el)
     return () => observer.disconnect()
-  }, [slideWidth, slideHeight])
+  }, [slideHeight, isPrint, isPresenter])
 
   const ctx = useMemo(
     () => ({ currentSlide: current, totalSlides, next, prev, goTo }),
@@ -108,6 +115,31 @@ export function Deck({
           next={next}
           prev={prev}
         />
+      </DeckContext.Provider>
+    )
+  }
+
+  // Print mode: all slides stacked vertically, no transitions, page-break between
+  if (isPrint) {
+    return (
+      <DeckContext.Provider value={ctx}>
+        <div data-prez-total={totalSlides}>
+          {slides.map((slide, i) => (
+            <div
+              key={i}
+              style={{
+                width: slideWidth,
+                height: slideHeight,
+                position: 'relative',
+                overflow: 'hidden',
+                pageBreakAfter: 'always',
+                breakAfter: 'page',
+              }}
+            >
+              <div style={{ position: 'absolute', inset: 0 }}>{slide}</div>
+            </div>
+          ))}
+        </div>
       </DeckContext.Provider>
     )
   }
@@ -142,6 +174,7 @@ export function Deck({
       <div
         ref={containerRef}
         className={className}
+        data-prez-total={totalSlides}
         style={{
           width: '100vw',
           height: '100vh',

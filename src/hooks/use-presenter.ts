@@ -8,10 +8,7 @@ interface SyncMessage {
   source: 'presenter' | 'deck'
 }
 
-export function usePresenter(
-  current: number,
-  goTo: (index: number) => void,
-) {
+export function usePresenter(current: number, goTo: (index: number) => void) {
   const isPresenter =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('presenter') === 'true'
@@ -43,7 +40,7 @@ export function usePresenter(
     return () => {
       channelRef.current?.close()
     }
-  }, [isPresenter, goTo])
+  }, [isPresenter, goTo, current])
 
   const broadcast = useCallback(
     (slide: number) => {

@@ -14,5 +14,5 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "template", "examples"]
+  "exclude": ["node_modules", "dist", "template", "examples", "src/scripts"]
 }

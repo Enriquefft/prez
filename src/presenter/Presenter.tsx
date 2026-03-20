@@ -1,4 +1,4 @@
-import React, { ReactElement, useEffect, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 
 interface PresenterProps {
   slides: ReactElement[]
@@ -168,6 +168,7 @@ export function Presenter({
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
+              type="button"
               onClick={prev}
               style={{
                 padding: '8px 16px',
@@ -182,6 +183,7 @@ export function Presenter({
               Prev
             </button>
             <button
+              type="button"
               onClick={next}
               style={{
                 padding: '8px 16px',

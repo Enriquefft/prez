@@ -14,7 +14,8 @@
     }
   },
   "bin": {
-    "prez": "./dist/cli/init.js"
+    "prez": "./dist/cli/init.js",
+    "prez-image": "./dist/cli/image.js"
   },
   "files": [
     "dist",
@@ -23,13 +24,18 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "lint:fix": "biome check --fix",
+    "format": "biome format --write"
   },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
+    "@types/node": "^25.5.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "react": "^18.2.0",
@@ -50,5 +56,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/prez-dev/prez"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "@resvg/resvg-js": "^2.6.2"
   }
 }
