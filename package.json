@@ -56,11 +56,16 @@
     "claude",
     "vite"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Enriquefft/prez"
   },
+  "homepage": "https://github.com/Enriquefft/prez",
+  "bugs": "https://github.com/Enriquefft/prez/issues",
   "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@resvg/resvg-js": "^2.6.2"

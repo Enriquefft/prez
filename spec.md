@@ -24,7 +24,7 @@ Developers who use AI coding assistants (Claude Code, Cursor, etc.) and want to 
 ```bash
 bunx @enriquefft/prez init
 # creates deck/ folder in your project with a Vite + React setup
-cd deck && npm install
+cd deck && bun install
 ```
 
 ### Creating a deck
@@ -35,7 +35,7 @@ Talk to Claude inside your project:
 "Create a pitch deck for investors. Read the docs in ./docs/ and use the logo from ./src/components/Logo.tsx"
 ```
 
-Claude reads your repo, creates slides as React components in `deck/src/slides.tsx`, and runs the dev server. You preview at localhost:3000.
+Claude reads your repo, creates slides as React components in `deck/src/slides.tsx`, and runs the dev server. You preview at localhost:5173.
 
 ### Iterating
 
@@ -50,15 +50,15 @@ Claude edits the slides directly. Full creative control — Tailwind, CSS, Frame
 ### Exporting
 
 ```bash
-npm run export:pdf        # deck.pdf
-npm run export:pptx       # deck.pptx (via dom-to-pptx)
-npm run build             # static SPA, deploy anywhere
+bun run export:pdf        # deck.pdf (system Chrome --print-to-pdf)
+bun run export:pptx       # deck.pptx (system Chrome screenshots + pptxgenjs)
+bun run build             # static SPA, deploy anywhere
 ```
 
 ### Presenting
 
 ```
-Open localhost:3000
+Open localhost:5173
 Alt+Shift+P → presenter mode (second window with notes, timer, next slide)
 Arrow keys / spacebar to navigate
 F for fullscreen
@@ -80,12 +80,10 @@ The root container. Handles:
 ```tsx
 import { Deck, Slide } from '@enriquefft/prez'
 
-export default () => (
-  <Deck>
-    <Slide>...</Slide>
-    <Slide>...</Slide>
-  </Deck>
-)
+<Deck>
+  <Slide>...</Slide>
+  <Slide>...</Slide>
+</Deck>
 ```
 
 Props:
@@ -132,35 +130,23 @@ Access deck state from inside a slide.
 const { currentSlide, totalSlides, next, prev, goTo } = useDeck()
 ```
 
-#### `usePresenter()`
-
-Check if we're in presenter mode.
-
-```tsx
-const { isPresenter } = usePresenter()
-```
-
 ## Export Targets
 
-### PDF (`npm run export:pdf`)
+### PDF (`bun run export:pdf`)
 
-Uses Puppeteer to navigate each slide and capture to a multi-page PDF. Renders exactly what the browser renders — pixel-perfect.
+Uses system Chrome `--headless=new --print-to-pdf` with `@page { size }` CSS to produce 16:9 landscape PDF pages. Renders exactly what the browser renders — pixel-perfect. No Puppeteer dependency.
 
-### PPTX (`npm run export:pptx`)
+### PPTX (`bun run export:pptx`)
 
-Uses dom-to-pptx to read the rendered DOM and convert to PowerPoint format. Preserves positioning, colors, text, and basic styles. Complex CSS effects may not translate perfectly — this is a best-effort conversion.
+Uses system Chrome headless to screenshot each slide, then assembles images into a PPTX via pptxgenjs. Produces a presentation with one image per slide at native 1280x720 resolution.
 
-### Static SPA (`npm run build`)
+### Static SPA (`bun run build`)
 
 Standard Vite build. Produces a static site deployable to Vercel, Netlify, GitHub Pages, S3, or any static host. Includes all navigation, transitions, and presenter mode.
 
-### Video / MP4 (v2)
-
-Remotion integration for rendering slides to video with transitions and timing. Planned for v2 after initial validation.
-
 ## Technical Details
 
-### Engine package (`prez`)
+### Engine package (`@enriquefft/prez`)
 - React components + hooks
 - Zero runtime dependencies beyond React
 - Peer dependency: react >= 18
@@ -188,7 +174,7 @@ Remotion integration for rendering slides to video with transitions and timing. 
 
 4. **Existing components** — Import your TSX/JSX components directly. No rewriting, no adapters, no conversion.
 
-5. **Export everywhere** — Same slides export to PDF, PPTX, web, and eventually video. Write once, output anywhere.
+5. **Export everywhere** — Same slides export to PDF, PPTX, and web. Write once, output anywhere.
 
 ## v1 Scope
 
@@ -199,16 +185,14 @@ Ship with:
 - [x] URL hash sync
 - [x] Presenter mode (BroadcastChannel)
 - [x] `prez init` CLI
-- [x] PDF export (Puppeteer)
-- [x] PPTX export (dom-to-pptx)
+- [x] PDF export (system Chrome `--print-to-pdf`)
+- [x] PPTX export (system Chrome screenshots + pptxgenjs)
 - [x] Vite template with Tailwind
 - [x] 1 example deck
-- [x] README with GIF demo
+- [x] README
 
 ## v2 (post-launch)
 
 - [ ] Video export (Remotion)
 - [ ] `prez deploy` (Vercel/Netlify one-command deploy)
-- [ ] Claude skill (published to skill registry)
-- [ ] More example decks
 - [ ] Slide overview mode (bird's eye grid)

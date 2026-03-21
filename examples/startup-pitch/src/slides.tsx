@@ -35,11 +35,10 @@ function TeamMember({
   )
 }
 
-export default function Slides() {
-  return (
-    <>
-      {/* Slide 1: Title */}
-      <Slide>
+const slides = (
+  <>
+    {/* Slide 1: Title */}
+    <Slide>
         <div className="flex flex-col items-center justify-center h-full bg-[#0a0a0a] text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 via-transparent to-cyan-600/20" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[120px]" />
@@ -330,7 +329,8 @@ export default function Slides() {
         <Notes>
           End with confidence. "We'd love to have you on this journey."
         </Notes>
-      </Slide>
-    </>
-  )
-}
+    </Slide>
+  </>
+)
+
+export default slides

@@ -11,7 +11,7 @@
     "export:pptx": "bun ./src/export-pptx.ts"
   },
   "dependencies": {
-    "@enriquefft/prez": "github:Enriquefft/prez",
+    "@enriquefft/prez": "^0.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
