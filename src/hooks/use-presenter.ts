@@ -53,8 +53,16 @@ export function usePresenter(current: number, goTo: (index: number) => void) {
     [isPresenter],
   )
 
-  const registerNotes = useCallback((slideNotes: string[]) => {
-    setNotes(slideNotes)
+  const registerNotes = useCallback((newNotes: string[]) => {
+    setNotes((prev) => {
+      if (
+        prev.length === newNotes.length &&
+        prev.every((n, i) => n === newNotes[i])
+      ) {
+        return prev
+      }
+      return newNotes
+    })
   }, [])
 
   return { isPresenter, broadcast, notes, registerNotes }
