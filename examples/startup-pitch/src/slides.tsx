@@ -1,4 +1,4 @@
-import { Notes, Slide } from 'prez'
+import { Notes, Slide } from '@enriquefft/prez'
 
 function Metric({ value, label }: { value: string; label: string }) {
   return (

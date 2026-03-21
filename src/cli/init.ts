@@ -15,7 +15,7 @@ const prezRoot = resolve(__dirname, '..', '..')
 function linkPrezDependency(targetDir: string) {
   const pkgPath = join(targetDir, 'package.json')
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-  pkg.dependencies.prez = `file:${prezRoot}`
+  pkg.dependencies['@enriquefft/prez'] = `file:${prezRoot}`
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 

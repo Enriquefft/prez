@@ -32,7 +32,7 @@ Three components. That's it.
 ### `<Deck>` — Root container
 
 ```tsx
-import { Deck, Slide, Notes } from 'prez'
+import { Deck, Slide, Notes } from '@enriquefft/prez'
 
 <Deck>
   <Slide>...</Slide>

@@ -1,4 +1,4 @@
-import { Deck } from 'prez'
+import { Deck } from '@enriquefft/prez'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import Slides from './slides'

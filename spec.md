@@ -22,7 +22,7 @@ Developers who use AI coding assistants (Claude Code, Cursor, etc.) and want to 
 ### Setup (once per project)
 
 ```bash
-npx prez init
+bunx @enriquefft/prez init
 # creates deck/ folder in your project with a Vite + React setup
 cd deck && npm install
 ```
@@ -78,7 +78,7 @@ The root container. Handles:
 - Context provider for child components
 
 ```tsx
-import { Deck, Slide } from 'prez'
+import { Deck, Slide } from '@enriquefft/prez'
 
 export default () => (
   <Deck>

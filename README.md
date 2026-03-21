@@ -43,12 +43,11 @@ Then just ask:
 
 ```tsx
 // deck/src/slides.tsx
-import { Slide, Notes } from 'prez'
+import { Slide, Notes } from '@enriquefft/prez'
 
-export default function Slides() {
-  return (
-    <>
-      <Slide>
+const slides = (
+  <>
+    <Slide>
         <div className="flex flex-col items-center justify-center h-full
                         bg-gradient-to-br from-indigo-900 via-purple-900 to-black text-white">
           <h1 className="text-8xl font-black tracking-tighter">Acme AI</h1>
@@ -66,10 +65,11 @@ export default function Slides() {
         </div>
       </Slide>
 
-      {/* as many slides as needed */}
-    </>
-  )
-}
+    {/* as many slides as needed */}
+  </>
+)
+
+export default slides
 ```
 
 See [`examples/startup-pitch`](./examples/startup-pitch) for a full 8-slide investor deck.

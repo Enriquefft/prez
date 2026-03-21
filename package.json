@@ -1,5 +1,8 @@
 {
-  "name": "prez",
+  "name": "@enriquefft/prez",
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "Zero-opinion presentation engine for AI. You bring the content, Claude brings the design.",
   "type": "module",

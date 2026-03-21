@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { Deck } from 'prez'
+import { Deck } from '@enriquefft/prez'
 import slides from './slides'
 import './styles.css'
 

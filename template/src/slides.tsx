@@ -1,4 +1,4 @@
-import { Slide, Notes } from 'prez'
+import { Slide, Notes } from '@enriquefft/prez'
 
 const slides = (
   <>

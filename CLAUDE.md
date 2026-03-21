@@ -21,7 +21,7 @@ bun run format       # Format with biome
 
 This is an **npm package** (not an app). It ships two things:
 
-1. **Library** (`src/index.ts` → `dist/`): React components and hooks consumed by end users via `import { Deck, Slide, Notes, useDeck } from 'prez'`
+1. **Library** (`src/index.ts` → `dist/`): React components and hooks consumed by end users via `import { Deck, Slide, Notes, useDeck } from '@enriquefft/prez'`
 2. **CLI** (`src/cli/init.ts` → `dist/cli/`): `prez init` scaffolds a `deck/` folder from `template/` via interactive wizard (@clack/prompts). Supports `--yes` for non-interactive CI usage.
 
 ### Build
@@ -54,7 +54,7 @@ Three commands for getting images into slides:
 
 ### Template (`template/`)
 
-Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project. Users edit `src/slides.tsx` — that's the single file workflow. The template has its own `package.json` with `prez` as a dependency.
+Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project. Users edit `src/slides.tsx` — that's the single file workflow. The template has its own `package.json` with `@enriquefft/prez` as a dependency.
 
 ### Export pipeline
 
