@@ -6,9 +6,7 @@ import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Deck
-      // downloadUrl={{ pdf: "/deck.pdf", pptx: "/deck.pptx" }}
-    >
+    <Deck downloadUrl={{ pdf: "/deck.pdf", pptx: "/deck.pptx" }}>
       {slides}
     </Deck>
   </React.StrictMode>,

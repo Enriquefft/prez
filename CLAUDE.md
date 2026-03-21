@@ -81,7 +81,7 @@ Optional prop on `<Deck>` to show a floating download button:
 - `downloadUrl="/deck.pptx"` — single format, direct download
 - `downloadUrl={{ pdf: "/deck.pdf", pptx: "/deck.pptx" }}` — multi-format with popover menu
 
-Typical workflow: `bun run build:export` generates files in `public/`, next build includes them as static assets, `downloadUrl` links to them.
+Typical workflow: `bun run build:export` builds the app, then exports PDF/PPTX directly into `dist/`. The `downloadUrl` prop links to those files. Single command, single source of truth (`slides.tsx`).
 
 ### Template (`template/`)
 
