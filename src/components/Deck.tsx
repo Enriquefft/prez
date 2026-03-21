@@ -33,14 +33,144 @@ function flattenChildren(children: ReactNode): ReactElement[] {
 export interface DeckProps {
   aspectRatio?: string
   transition?: 'none' | 'fade' | 'slide'
+  showFullscreenButton?: boolean
   className?: string
   style?: CSSProperties
   children: ReactNode
 }
 
+function FullscreenButton({
+  containerRef,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [visible, setVisible] = useState(true)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+      setVisible(true)
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange)
+      document.removeEventListener('webkitfullscreenchange', onFsChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    const resetTimer = () => {
+      setVisible(true)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setVisible(false), 3000)
+    }
+    resetTimer()
+    const el = containerRef.current
+    if (!el) return
+    el.addEventListener('mousemove', resetTimer)
+    el.addEventListener('touchstart', resetTimer)
+    return () => {
+      clearTimeout(timerRef.current)
+      el.removeEventListener('mousemove', resetTimer)
+      el.removeEventListener('touchstart', resetTimer)
+    }
+  }, [containerRef])
+
+  const toggle = () => {
+    const el = containerRef.current
+    if (!el) return
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      const req =
+        el.requestFullscreen ||
+        (el as unknown as { webkitRequestFullscreen?: () => Promise<void> })
+          .webkitRequestFullscreen
+      req?.call(el)
+    }
+  }
+
+  const fsEnabled =
+    typeof document !== 'undefined' &&
+    (document.fullscreenEnabled ||
+      (document as unknown as { webkitFullscreenEnabled?: boolean })
+        .webkitFullscreenEnabled)
+
+  if (!fsEnabled) return null
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+      style={{
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        width: 44,
+        height: 44,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)',
+        border: 'none',
+        borderRadius: 8,
+        cursor: 'pointer',
+        opacity: visible ? 0.7 : 0,
+        pointerEvents: visible ? 'auto' : 'none',
+        transition: 'opacity 0.3s',
+        zIndex: 9999,
+        padding: 0,
+      }}
+    >
+      {isFullscreen ? (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          role="img"
+          aria-label="Exit fullscreen"
+        >
+          <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+          <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+          <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+          <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+        </svg>
+      ) : (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          role="img"
+          aria-label="Enter fullscreen"
+        >
+          <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+          <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 export function Deck({
   aspectRatio = '16/9',
   transition = 'none',
+  showFullscreenButton = true,
   className,
   style,
   children,
@@ -143,10 +273,12 @@ export function Deck({
 
   // Print mode: all slides stacked vertically, no transitions, page-break between
   if (isPrint) {
+    const widthMm = ((slideWidth / 96) * 25.4).toFixed(2)
+    const heightMm = ((slideHeight / 96) * 25.4).toFixed(2)
     return (
       <DeckContext.Provider value={ctx}>
         <style>{`
-          @page { size: ${slideWidth}px ${slideHeight}px; margin: 0; }
+          @page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }
           * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         `}</style>
         <div data-prez-total={totalSlides}>
@@ -238,6 +370,9 @@ export function Deck({
             ))}
           </div>
         </div>
+        {showFullscreenButton && (
+          <FullscreenButton containerRef={containerRef} />
+        )}
       </div>
     </DeckContext.Provider>
   )

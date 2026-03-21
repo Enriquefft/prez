@@ -33,8 +33,8 @@ describe('Deck print mode', () => {
     const style = container.querySelector('style')
     expect(style).toBeTruthy()
     expect(style?.textContent).toContain('@page')
-    expect(style?.textContent).toContain('1280px')
-    expect(style?.textContent).toContain('720px')
+    expect(style?.textContent).toContain('338.67mm')
+    expect(style?.textContent).toContain('190.50mm')
     expect(style?.textContent).toContain('print-color-adjust')
   })
 

@@ -1,4 +1,4 @@
-import { Slide, Notes } from '@enriquefft/prez'
+import { Slide, Notes, symbols } from '@enriquefft/prez'
 
 const slides = (
   <>
@@ -26,15 +26,15 @@ const slides = (
         <h2 className="text-5xl font-bold mb-12">The Solution</h2>
         <div className="grid grid-cols-3 gap-8 max-w-4xl">
           <div className="text-center">
-            <div className="text-6xl mb-4">1</div>
+            <div className="text-6xl mb-4">{symbols.check}</div>
             <p className="text-lg text-white/70">Tell Claude what you want</p>
           </div>
           <div className="text-center">
-            <div className="text-6xl mb-4">2</div>
+            <div className="text-6xl mb-4">{symbols.arrowRight}</div>
             <p className="text-lg text-white/70">It reads your codebase</p>
           </div>
           <div className="text-center">
-            <div className="text-6xl mb-4">3</div>
+            <div className="text-6xl mb-4">{symbols.star}</div>
             <p className="text-lg text-white/70">Beautiful deck, instantly</p>
           </div>
         </div>

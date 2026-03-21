@@ -21,7 +21,7 @@ bun run format       # Format with biome
 
 This is an **npm package** (not an app). It ships two things:
 
-1. **Library** (`src/index.ts` → `dist/`): React components and hooks consumed by end users via `import { Deck, Slide, Notes, useDeck } from '@enriquefft/prez'`
+1. **Library** (`src/index.ts` → `dist/`): React components, hooks, and utilities consumed by end users via `import { Deck, Slide, Notes, useDeck, symbols } from '@enriquefft/prez'`
 2. **CLI** (`src/cli/init.ts` → `dist/cli/`): `prez init` scaffolds a `deck/` folder from `template/` via interactive wizard (@clack/prompts). Supports `--yes` for non-interactive CI usage.
 
 ### Build
@@ -32,7 +32,8 @@ tsup produces two bundles (configured in `tsup.config.ts`):
 
 ### Source layout
 
-- `src/components/Deck.tsx` — Root container: aspect-ratio scaling (1280x720 base), slide transitions (none/fade/slide), context provider, notes extraction, presenter mode branching, print mode (`?print=true`)
+- `src/symbols.ts` — `symbols` constant: Unicode characters for common presentation glyphs (check, cross, arrows, etc.). Use instead of HTML entities which don't work in JSX.
+- `src/components/Deck.tsx` — Root container: aspect-ratio scaling (1280x720 base), slide transitions (none/fade/slide), context provider, notes extraction, presenter mode branching, print mode (`?print=true`), optional fullscreen button (`showFullscreenButton` prop, default true)
 - `src/components/Slide.tsx` — Simple wrapper div, no logic
 - `src/components/Notes.tsx` — Renders `null`; Deck extracts its children for presenter mode
 - `src/context.ts` — `DeckContext` and `useDeck()` hook exposing `currentSlide`, `totalSlides`, `next`, `prev`, `goTo`
@@ -46,15 +47,19 @@ tsup produces two bundles (configured in `tsup.config.ts`):
 
 ### Image CLI (`prez-image`)
 
-Three commands for getting images into slides:
+Commands for getting images into slides:
 
-- `prez-image gen "prompt" -o output.png` — AI image generation via Pollinations.ai (free, no key required)
+- `prez-image gen "prompt" -o output.png` — AI image generation via Pollinations.ai (requires API key, run `prez-image setup`)
 - `prez-image search "query" -o output.jpg` — Royalty-free photo search (Unsplash/Pexels, requires API key)
 - `prez-image render input.svg -o output.png` — SVG to PNG rendering via @resvg/resvg-js
+- `prez-image models` — List available Pollinations AI models
+- `prez-image setup` — Configure API keys (interactive or via `--pollinations-key`, `--unsplash-key`, `--pexels-key` flags)
+
+Generation flags: `--enhance` (AI prompt rewriting), `--negative-prompt`, `--quality` (low/medium/high/hd), `--transparent` (gptimage only), `--model`, `--seed`
 
 ### Template (`template/`)
 
-Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project. Users edit `src/slides.tsx` — that's the single file workflow. The template has its own `package.json` with `@enriquefft/prez` as a dependency.
+Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project with PWA support (manifest.json, fullscreen display, landscape orientation). Users edit `src/slides.tsx` — that's the single file workflow. The template has its own `package.json` with `@enriquefft/prez` as a dependency.
 
 ### Export pipeline
 
@@ -68,7 +73,7 @@ Export uses system Chrome headless (no Puppeteer dependency):
 - Slides are 1280px wide, height derived from aspect ratio. Scaled via CSS `transform: scale()` with ResizeObserver
 - Notes are extracted by Deck walking children and matching `child.type === Notes`
 - Presenter mode detected via `?presenter=true` URL param; sync uses BroadcastChannel, not WebSocket
-- Print mode detected via `?print=true` URL param; renders all slides stacked with page-break CSS
+- Print mode detected via `?print=true` URL param; renders all slides stacked with page-break CSS. Uses mm units in `@page` for correct Chrome PDF pagination
 - Export uses system Chrome instead of Puppeteer — zero heavy npm dependencies
 - No runtime dependencies beyond React (peer dep)
 - Uses bun as package manager, biome for linting/formatting

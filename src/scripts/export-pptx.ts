@@ -17,7 +17,8 @@ async function exportPptx() {
     '--headless=new',
     '--disable-gpu',
     '--no-sandbox',
-    '--virtual-time-budget=10000',
+    '--disable-features=LazyImageLoading',
+    '--virtual-time-budget=30000',
     '--run-all-compositor-stages-before-draw',
   ].join(' ')
 
@@ -27,7 +28,7 @@ async function exportPptx() {
 
     // Get total slide count from print mode HTML via Chrome dump-dom
     const printHtml = execSync(
-      `"${chrome}" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=10000 --dump-dom "${url}?print=true"`,
+      `"${chrome}" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=30000 --dump-dom "${url}?print=true"`,
       { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 50 * 1024 * 1024 },
     ).toString()
 

@@ -19,6 +19,15 @@ function linkPrezDependency(targetDir: string) {
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
+function updateManifest(targetDir: string, name: string) {
+  const manifestPath = join(targetDir, 'public', 'manifest.json')
+  if (!existsSync(manifestPath)) return
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+  manifest.name = name
+  manifest.short_name = name
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const command = args[0]
@@ -49,6 +58,7 @@ async function main() {
       mkdirSync(target, { recursive: true })
       cpSync(templateDir, target, { recursive: true })
       linkPrezDependency(target)
+      updateManifest(target, positionalName || 'deck')
 
       console.log(`Created presentation at ${target}`)
       console.log(`\nNext steps:`)
@@ -104,6 +114,7 @@ async function main() {
       mkdirSync(target, { recursive: true })
       cpSync(templateDir, target, { recursive: true })
       linkPrezDependency(target)
+      updateManifest(target, answers.name)
 
       s.stop('Presentation scaffolded')
 
