@@ -22,6 +22,7 @@
     "template"
   ],
   "scripts": {
+    "prepare": "tsup",
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
@@ -55,7 +56,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/prez-dev/prez"
+    "url": "https://github.com/Enriquefft/prez"
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",

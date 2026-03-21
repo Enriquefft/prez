@@ -13,35 +13,34 @@ async function exportPptx() {
   const tmpDir = join(process.cwd(), '.prez-export-tmp')
   mkdirSync(tmpDir, { recursive: true })
 
+  const chromeFlags = [
+    '--headless=new',
+    '--disable-gpu',
+    '--no-sandbox',
+    '--virtual-time-budget=10000',
+    '--run-all-compositor-stages-before-draw',
+  ].join(' ')
+
   try {
     console.log(`Exporting PPTX from ${url}`)
     console.log(`Using: ${chrome}`)
 
-    // Screenshot slide 0
-    const firstScreenshot = join(tmpDir, 'slide-0.png')
-    execSync(
-      `"${chrome}" --headless --disable-gpu --no-sandbox --screenshot="${firstScreenshot}" --window-size=1280,720 "${url}#/0"`,
-      { stdio: 'pipe' },
-    )
+    // Get total slide count from print mode HTML via Chrome dump-dom
+    const printHtml = execSync(
+      `"${chrome}" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=10000 --dump-dom "${url}?print=true"`,
+      { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 50 * 1024 * 1024 },
+    ).toString()
 
-    // Get total slide count: print-to-pdf the print view, count /Type /Page objects
-    const tmpPdf = join(tmpDir, 'count.pdf')
-    execSync(
-      `"${chrome}" --headless --disable-gpu --no-sandbox --print-to-pdf="${tmpPdf}" --no-pdf-header-footer "${url}?print=true"`,
-      { stdio: 'pipe' },
-    )
-
-    const pdfStr = readFileSync(tmpPdf).toString('latin1')
-    const pageMatches = pdfStr.match(/\/Type\s*\/Page(?!s)/g)
-    const totalSlides = pageMatches ? pageMatches.length : 1
+    const totalMatch = printHtml.match(/data-prez-total="(\d+)"/)
+    const totalSlides = totalMatch ? parseInt(totalMatch[1], 10) : 1
 
     console.log(`Found ${totalSlides} slides`)
 
-    // Screenshot remaining slides
-    for (let i = 1; i < totalSlides; i++) {
+    // Screenshot each slide
+    for (let i = 0; i < totalSlides; i++) {
       const screenshotPath = join(tmpDir, `slide-${i}.png`)
       execSync(
-        `"${chrome}" --headless --disable-gpu --no-sandbox --screenshot="${screenshotPath}" --window-size=1280,720 "${url}#/${i}"`,
+        `"${chrome}" ${chromeFlags} --screenshot="${screenshotPath}" --window-size=1280,720 "${url}#/${i}"`,
         { stdio: 'pipe' },
       )
       console.log(`  Captured slide ${i + 1}/${totalSlides}`)

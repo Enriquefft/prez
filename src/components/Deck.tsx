@@ -15,6 +15,21 @@ import { usePresenter } from '../hooks/use-presenter'
 import { Presenter } from '../presenter/Presenter'
 import { Notes } from './Notes'
 
+function flattenChildren(children: ReactNode): ReactElement[] {
+  const result: ReactElement[] = []
+  Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+    if (child.type === React.Fragment) {
+      result.push(
+        ...flattenChildren((child.props as { children?: ReactNode }).children),
+      )
+    } else if (child.type !== Notes) {
+      result.push(child as ReactElement)
+    }
+  })
+  return result
+}
+
 export interface DeckProps {
   aspectRatio?: string
   transition?: 'none' | 'fade' | 'slide'
@@ -30,10 +45,17 @@ export function Deck({
   style,
   children,
 }: DeckProps) {
-  const slides = Children.toArray(children).filter(
-    (child): child is ReactElement =>
-      React.isValidElement(child) && (child as ReactElement).type !== Notes,
-  )
+  const slides = flattenChildren(children)
+
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    slides.length === 1 &&
+    typeof slides[0].type === 'function'
+  ) {
+    console.warn(
+      '[prez] Deck received a single component child. Slides should be direct children of Deck, not wrapped in a component. Use {Slides()} or export a Fragment instead of <Slides />.',
+    )
+  }
 
   const totalSlides = slides.length
   const { current, goTo, next, prev, containerRef } = useNavigation(totalSlides)
@@ -123,6 +145,10 @@ export function Deck({
   if (isPrint) {
     return (
       <DeckContext.Provider value={ctx}>
+        <style>{`
+          @page { size: ${slideWidth}px ${slideHeight}px; margin: 0; }
+          * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        `}</style>
         <div data-prez-total={totalSlides}>
           {slides.map((slide, i) => (
             <div

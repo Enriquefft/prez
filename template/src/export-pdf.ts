@@ -11,7 +11,7 @@ console.log(`Exporting PDF from ${printUrl}`)
 console.log(`Using: ${chrome}`)
 
 execSync(
-  `"${chrome}" --headless --disable-gpu --no-sandbox --print-to-pdf="${output}" --no-pdf-header-footer "${printUrl}"`,
+  `"${chrome}" --headless=new --disable-gpu --no-sandbox --print-to-pdf="${output}" --no-pdf-header-footer --virtual-time-budget=10000 --run-all-compositor-stages-before-draw "${printUrl}"`,
   { stdio: 'inherit' },
 )
 

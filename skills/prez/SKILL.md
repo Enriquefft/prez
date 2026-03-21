@@ -83,10 +83,25 @@ const { currentSlide, totalSlides, next, prev, goTo } = useDeck()
 
 1. Read the user's codebase to understand their project, product, data, and brand
 2. Edit `deck/src/slides.tsx` — this is the ONLY file you need to touch
-3. Export a default component that returns `<>` with `<Slide>` children
-4. Each `<Slide>` is 1280x720 and can contain anything — full React/HTML/CSS freedom
-5. Use Tailwind classes (included by default) or inline styles
-6. Import components from the parent project via relative paths (e.g., `../../src/components/Chart`)
+3. Export a default **Fragment variable** (not a component) containing `<Slide>` children:
+   ```tsx
+   const slides = (
+     <>
+       <Slide>...</Slide>
+       {/* JSX comments work here */}
+       <Slide>...</Slide>
+     </>
+   )
+   export default slides
+   ```
+4. In `main.tsx`, use `{slides}` (not `<Slides />`):
+   ```tsx
+   import slides from './slides'
+   <Deck>{slides}</Deck>
+   ```
+5. Each `<Slide>` is 1280x720 and can contain anything — full React/HTML/CSS freedom
+6. Use Tailwind classes (included by default) or inline styles
+7. Import components from the parent project via relative paths (e.g., `../../src/components/Chart`)
 
 ## Design guidelines
 
