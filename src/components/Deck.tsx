@@ -34,6 +34,7 @@ export interface DeckProps {
   aspectRatio?: string
   transition?: 'none' | 'fade' | 'slide'
   showFullscreenButton?: boolean
+  downloadUrl?: string | { pdf?: string; pptx?: string }
   className?: string
   style?: CSSProperties
   children: ReactNode
@@ -167,10 +168,183 @@ function FullscreenButton({
   )
 }
 
+function DownloadButton({
+  downloadUrl,
+  containerRef,
+}: {
+  downloadUrl: string | { pdf?: string; pptx?: string }
+  containerRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [visible, setVisible] = useState(true)
+  const [showMenu, setShowMenu] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const resetTimer = () => {
+      setVisible(true)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setVisible(false), 3000)
+    }
+    resetTimer()
+    const el = containerRef.current
+    if (!el) return
+    el.addEventListener('mousemove', resetTimer)
+    el.addEventListener('touchstart', resetTimer)
+    return () => {
+      clearTimeout(timerRef.current)
+      el.removeEventListener('mousemove', resetTimer)
+      el.removeEventListener('touchstart', resetTimer)
+    }
+  }, [containerRef])
+
+  // Close menu on click outside or Escape
+  useEffect(() => {
+    if (!showMenu) return
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowMenu(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [showMenu])
+
+  const isSimple = typeof downloadUrl === 'string'
+
+  const buttonStyle: CSSProperties = {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    width: 44,
+    height: 44,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    borderRadius: 8,
+    cursor: 'pointer',
+    opacity: visible ? 0.7 : 0,
+    pointerEvents: visible ? 'auto' : 'none',
+    transition: 'opacity 0.3s',
+    zIndex: 9999,
+    padding: 0,
+    textDecoration: 'none',
+  }
+
+  const downloadIcon = (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="white"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      role="img"
+      aria-label="Download"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+
+  if (isSimple) {
+    return (
+      <a
+        href={downloadUrl}
+        download
+        style={buttonStyle}
+        aria-label="Download presentation"
+      >
+        {downloadIcon}
+      </a>
+    )
+  }
+
+  const urls = downloadUrl as { pdf?: string; pptx?: string }
+
+  return (
+    <div
+      ref={menuRef}
+      style={{ position: 'absolute', bottom: 16, left: 16, zIndex: 9999 }}
+    >
+      <button
+        type="button"
+        onClick={() => setShowMenu(!showMenu)}
+        style={buttonStyle}
+        aria-label="Download presentation"
+      >
+        {downloadIcon}
+      </button>
+      {showMenu && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 52,
+            left: 0,
+            background: 'rgba(0,0,0,0.85)',
+            borderRadius: 8,
+            padding: '4px 0',
+            minWidth: 140,
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          {urls.pdf && (
+            <a
+              href={urls.pdf}
+              download
+              style={{
+                display: 'block',
+                padding: '8px 16px',
+                color: 'white',
+                textDecoration: 'none',
+                fontSize: 14,
+                fontFamily: 'system-ui, sans-serif',
+              }}
+              onClick={() => setShowMenu(false)}
+            >
+              Download PDF
+            </a>
+          )}
+          {urls.pptx && (
+            <a
+              href={urls.pptx}
+              download
+              style={{
+                display: 'block',
+                padding: '8px 16px',
+                color: 'white',
+                textDecoration: 'none',
+                fontSize: 14,
+                fontFamily: 'system-ui, sans-serif',
+              }}
+              onClick={() => setShowMenu(false)}
+            >
+              Download PPTX
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Deck({
   aspectRatio = '16/9',
   transition = 'none',
   showFullscreenButton = true,
+  downloadUrl,
   className,
   style,
   children,
@@ -372,6 +546,12 @@ export function Deck({
         </div>
         {showFullscreenButton && (
           <FullscreenButton containerRef={containerRef} />
+        )}
+        {downloadUrl && (
+          <DownloadButton
+            downloadUrl={downloadUrl}
+            containerRef={containerRef}
+          />
         )}
       </div>
     </DeckContext.Provider>

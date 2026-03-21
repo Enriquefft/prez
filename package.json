@@ -18,7 +18,8 @@
   },
   "bin": {
     "prez": "./dist/cli/init.js",
-    "prez-image": "./dist/cli/image.js"
+    "prez-image": "./dist/cli/image.js",
+    "prez-export": "./dist/cli/export.js"
   },
   "files": [
     "dist",
@@ -74,6 +75,7 @@
   "bugs": "https://github.com/Enriquefft/prez/issues",
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@resvg/resvg-js": "^2.6.2"
+    "@resvg/resvg-js": "^2.6.2",
+    "pptxgenjs": "^3.12.0"
   }
 }
