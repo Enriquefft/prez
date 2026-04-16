@@ -25,6 +25,18 @@ curl -fsSL https://raw.githubusercontent.com/Enriquefft/prez/main/setup.sh | sh
 
 Then `cd deck && bun install && bun run dev` to start the dev server at localhost:5173.
 
+### Scaffold flags
+
+- `prez init <name> --yes` — non-interactive scaffold, installs Claude skills into `<name>/.claude/skills/`
+- `prez init <name> --yes --no-skills` — for CI or when the parent repo manages its own skills
+
+Skills are **deck-local**: they land inside the scaffolded deck (e.g. `deck/.claude/skills/`), not in the cwd you ran `prez init` from. This keeps skills with the presentation, not leaking into unrelated parent projects.
+
+### Companion skills installed alongside this one
+
+- `prez-image` — generate, search, and render images (see `skills/prez-image/SKILL.md`)
+- `prez-validate` — screenshot every slide for visual validation (see `skills/prez-validate/SKILL.md`). Run it after any non-trivial change to `src/slides.tsx` to catch overflow, contrast, or broken-image issues TypeScript can't.
+
 ## API
 
 Three components. That's it.
@@ -133,7 +145,11 @@ deck/
 - F — toggle fullscreen
 - Alt+Shift+P — open presenter mode (separate window with notes + timer)
 - Touch swipe on mobile
-- URL hash sync (#/3 = slide 3)
+- URL hash sync (#/N)
+
+### Slide numbering convention
+
+Every CLI flag, log message, and human-facing reference uses **1-based** slide numbers (slide 1 is the first slide). The URL hash is internally 0-based for historical reasons (`#/0` loads slide 1), but you should think and report in 1-based terms — that's what every `prez-*` CLI accepts and emits.
 
 ## Export
 
