@@ -3,7 +3,7 @@ name: prez
 description: Create beautiful presentations from any codebase. Zero-opinion slide engine — you have full React/HTML/CSS freedom inside each slide.
 metadata:
   author: Enriquefft
-  version: "0.1.0"
+  version: "1.0.0"
   argument-hint: "describe the presentation you want"
 ---
 
@@ -20,10 +20,16 @@ When the user asks you to create a presentation, pitch deck, slide deck, or any 
 If no `deck/` folder exists in the project, scaffold one:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Enriquefft/prez/main/setup.sh | sh
+bunx @enriquefft/prez init
 ```
 
 Then `cd deck && bun install && bun run dev` to start the dev server at localhost:5173.
+
+Legacy install form (kept for historical links, prefer `bunx` above):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Enriquefft/prez/main/setup.sh | sh
+```
 
 ### Scaffold flags
 
@@ -57,6 +63,8 @@ Props:
 - `transition?: 'none' | 'fade' | 'slide'` — default `'none'`
 - `className?: string`
 - `style?: CSSProperties`
+- `showFullscreenButton?: boolean` — floating fullscreen toggle
+- `downloadUrl?: string | { pdf?: string; pptx?: string }` — floating download button; string for single format, object for a multi-format popover (see Export below)
 
 ### `<Slide>` — One slide
 
@@ -147,26 +155,80 @@ deck/
 - Touch swipe on mobile
 - URL hash sync (#/N)
 
-### Slide numbering convention
+## Slide numbering convention
 
-Every CLI flag, log message, and human-facing reference uses **1-based** slide numbers (slide 1 is the first slide). The URL hash is internally 0-based for historical reasons (`#/0` loads slide 1), but you should think and report in 1-based terms — that's what every `prez-*` CLI accepts and emits.
+prez uses **1-based** slide numbers on every external surface: CLI
+arguments (`--slide 3`), JSON event fields (`"slide": 3`), node-API
+parameters (`validateScreenshots({ slide: 3 })`), log lines, and diff
+reports. Internal URL hashes are 0-based (`#/0` renders slide 1),
+and the `?screenshot=N` render mode takes a 0-based `N`. The Node
+API encodes this at the type level with branded
+`ExternalSlideNumber` (1-based) and `InternalSlideIndex` (0-based)
+types; use `toInternal` / `toExternal` / `asExternal` / `asInternal`
+to cross the boundary. Agents should emit and parse 1-based numbers
+everywhere the user-visible surface demands.
+
+## Render modes (internal)
+
+The Deck switches behavior based on URL query params — agents should not re-implement these; `prez-validate` and `prez-export` already drive them:
+
+- `?print=true` — all slides stacked with page-break CSS (drives PDF export)
+- `?presenter=true` — presenter-mode UI (opened by Alt+Shift+P)
+- `?screenshot=N` — renders only the slide at 0-based index `N`, used by `prez-validate` and the PPTX export. Agents that need a per-slide image should call `prez-validate --slide N` (1-based) instead of touching this URL directly.
+
+## Global CLI flags
+
+Every `prez-*` binary accepts:
+- `-h`, `--help` — print usage and exit 0
+- `-V`, `--version` — print `<name> <version>` and exit 0
+
+These are emitted via a shared CLI kit (`src/cli/_cli-kit.ts`), so
+agents can rely on identical behavior across `prez init`,
+`prez-image`, `prez-export`, and `prez-validate`.
 
 ## Export
 
+Single entry point — `bunx prez-export` — drives both PDF and PPTX. See `skills/prez-validate/SKILL.md` for the validate-then-export loop.
+
 ```bash
-bun run build          # Static SPA, deploy anywhere
-bun run export:pdf     # PDF via system Chrome
-bun run export:pptx    # PPTX via system Chrome + pptxgenjs
+bunx prez-export              # Export both PDF and PPTX to ./dist/
+bunx prez-export pdf          # PDF only
+bunx prez-export pptx         # PPTX only
+bunx prez-export --build      # Build first, then export
+bunx prez-export --url http://localhost:5173   # Export from a running server
 ```
+
+Flags:
+- `--output <dir>` / `-o <dir>` — output directory (default `./dist/`)
+- `--base <path>` — override Vite base when it isn't `/`
+- `--timeout <ms>` — Chrome timeout, default `30000`
+
+Because the default output is `./dist/`, the built SPA and the exported artifacts live side-by-side. Wire them up with `downloadUrl`:
+
+```tsx
+<Deck
+  downloadUrl={{ pdf: 'deck.pdf', pptx: 'deck.pptx' }}
+>
+  {slides}
+</Deck>
+```
+
+Then `bunx prez-export --build` produces a `dist/` that serves the deck and its downloads from one directory. `downloadUrl` as a plain string emits a single direct-download button; as an object it emits a popover with one link per format.
+
+## Node API
+
+For programmatic pipelines (custom validators, CI gates, batch screenshotters) import from `@enriquefft/prez/node`. The surface covers screenshot capture (`ChromeBrowser`, `ChromeSession`, `screenshotSlides`), diffing (`diffPng`), the full validate orchestrator (`validateScreenshots`), and the branded slide-index helpers. See `skills/prez-validate/SKILL.md` for the canonical usage pattern.
 
 ## Image tools
 
-prez includes `prez-image` for getting images into slides. See `skills/prez-image/SKILL.md` for full docs.
+See `skills/prez-image/SKILL.md` for image generation (AI), royalty-free search, and SVG-to-PNG rendering.
 
-```bash
-bunx prez-image gen "prompt" -o deck/public/hero.png       # AI-generated image (free)
-bunx prez-image search "query" -o deck/public/photo.jpg    # Royalty-free photo search
-bunx prez-image render diagram.svg -o deck/public/out.png  # SVG to PNG
-```
+## Common mistakes
 
-Save images to `deck/public/` and reference as `<img src="/hero.png" />`.
+- **Don't duplicate slide content across `main.tsx` and `slides.tsx`.** `slides.tsx` is the single source of truth; `main.tsx` just imports and renders it inside `<Deck>`.
+- **Don't copy generated images into `src/`.** Put them in `deck/public/` so Vite serves them at the root, then reference via `<img src="/hero.png">` or Tailwind `bg-[url('/hero.png')]`.
+- **Don't invent a `<Slides>` component.** `slides.tsx` exports a Fragment variable; render it with `{slides}`, not `<Slides />`.
+
+## Error-first: when setup breaks
+
+If `bun run dev` fails with `ENOENT src/slides.tsx`, the scaffold didn't complete — re-run `bunx @enriquefft/prez init`. If a CLI exits with "Error: dist/ not found", pass `--build` to have it build first.
