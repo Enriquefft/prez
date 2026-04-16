@@ -35,7 +35,7 @@ Uses Pollinations.ai (free, no API key required). For higher rate limits, set `P
 Options:
 - `-o, --output <path>` — output file (required)
 - `-w, --width <px>` — width, default 1280
-- `-h, --height <px>` — height, default 720
+- `--height <px>` — height, default 720 (use the long form; `-h` is `--help`)
 - `--model <name>` — Pollinations model, default "flux"
 - `--seed <n>` — seed for reproducible output
 
@@ -107,7 +107,17 @@ bunx prez-image render /tmp/architecture.svg -o deck/public/architecture.png
 ## Tips
 
 - Save images to `deck/public/` so Vite serves them at the root path
-- Use `-w 1280 -h 720` for full-bleed slide backgrounds (this is the default)
+- Use `-w 1280 --height 720` for full-bleed slide backgrounds (this is the default). `-h` is **help**, not height — `-h 720` will error with exit code 2.
 - Use `--seed` with gen to get reproducible results while iterating
 - For search, landscape orientation is automatically requested to match slide aspect ratio
 - You can generate multiple images in parallel by running several commands
+
+## Global flags (shared with every `prez-*` CLI)
+
+- `-h`, `--help` — print usage and exit
+- `-V`, `--version` — print version and exit
+
+## Companion skills
+
+- `prez` — the presentation engine itself (`skills/prez/SKILL.md`)
+- `prez-validate` — screenshot each slide and check for rendering issues (`skills/prez-validate/SKILL.md`). Useful after embedding a generated or searched image to confirm it fits the slide.

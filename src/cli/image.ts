@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, extname, join, resolve } from 'node:path'
+import { SLIDE_INDEX_DOCS } from '../slide-index.js'
+import { die, type HelpSpec, handleGlobalFlags, printHelp } from './_cli-kit.js'
 
 const CONFIG_PATH = join(
   process.env.XDG_CONFIG_HOME || join(homedir(), '.config'),
@@ -28,42 +30,73 @@ function writeConfig(config: Config) {
   writeFileSync(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`)
 }
 
-const USAGE = `prez-image - Generate, search, and create images for presentations
-
-Usage:
-  prez-image gen <prompt> -o <output>          Generate an image with AI (Pollinations.ai)
-  prez-image search <query> -o <output>        Search royalty-free photos (Unsplash/Pexels)
-  prez-image render <file.svg> -o <output>     Render SVG to PNG
-  prez-image models                            List available AI models
-  prez-image setup                             Configure API keys (interactive)
-  prez-image setup --pollinations-key <key>    Configure keys non-interactively
-
-Setup options:
-  --pollinations-key <key>   Pollinations API key
-  --unsplash-key <key>       Unsplash access key
-  --pexels-key <key>         Pexels API key
-
-Generation options:
-  -o, --output <path>      Output file path (required)
-  -w, --width <px>         Width in pixels (default: 1280)
-  -h, --height <px>        Height in pixels (default: 720)
-  --model <name>           Pollinations model (default: "flux", run "models" to list)
-  --seed <n>               Seed for reproducible results
-  --enhance                AI-rewrite prompt for better output (recommended)
-  --negative-prompt <s>    Things to avoid (e.g. "blurry, text, watermark")
-  --quality <level>        Quality: low, medium, high, hd (gptimage model only)
-  --transparent            Transparent background (gptimage model only)
-
-Search options:
-  --provider <name>        "unsplash" or "pexels" (default: tries both)
-
-Environment variables (override config):
-  POLLINATIONS_API_KEY   Required for image generation via Pollinations.ai
-  UNSPLASH_ACCESS_KEY    For image search via Unsplash
-  PEXELS_API_KEY         For image search via Pexels
-
-Config file: ~/.config/prez/config.json (set via prez-image setup)
-`
+const IMAGE_HELP_SPEC: HelpSpec = {
+  name: 'prez-image',
+  summary: 'Generate, search, and create images for presentations',
+  usage: [
+    'prez-image gen <prompt> -o <output>',
+    'prez-image search <query> -o <output>',
+    'prez-image render <file.svg> -o <output>',
+    'prez-image models',
+    'prez-image setup [--pollinations-key <key>] [--unsplash-key <key>] [--pexels-key <key>]',
+  ],
+  sections: [
+    {
+      title: 'Commands',
+      rows: [
+        ['gen <prompt>', 'Generate an image with AI (Pollinations.ai)'],
+        ['search <query>', 'Search royalty-free photos (Unsplash/Pexels)'],
+        ['render <file.svg>', 'Render SVG to PNG'],
+        ['models', 'List available AI models'],
+        ['setup', 'Configure API keys (interactive or via flags)'],
+      ],
+    },
+    {
+      title: 'Setup options',
+      rows: [
+        ['--pollinations-key <key>', 'Pollinations API key'],
+        ['--unsplash-key <key>', 'Unsplash access key'],
+        ['--pexels-key <key>', 'Pexels API key'],
+      ],
+    },
+    {
+      title: 'Generation options',
+      rows: [
+        ['-o, --output <path>', 'Output file path (required)'],
+        ['-w, --width <px>', 'Width in pixels (default: 1280)'],
+        ['--height <px>', 'Height in pixels (default: 720)'],
+        ['--model <name>', 'Pollinations model (default: "flux")'],
+        ['--seed <n>', 'Seed for reproducible results'],
+        ['--enhance', 'AI-rewrite prompt for better output'],
+        ['--negative-prompt <s>', 'Things to avoid (e.g. "blurry, text")'],
+        ['--quality <level>', 'low | medium | high | hd (gptimage only)'],
+        ['--transparent', 'Transparent background (gptimage only)'],
+      ],
+    },
+    {
+      title: 'Search options',
+      rows: [
+        ['--provider <name>', '"unsplash" or "pexels" (default: tries both)'],
+      ],
+    },
+    {
+      title: 'Global options',
+      rows: [
+        ['-h, --help', 'Show this help and exit'],
+        ['-V, --version', 'Print version and exit'],
+      ],
+    },
+    {
+      title: 'Environment variables (override config)',
+      rows: [
+        ['POLLINATIONS_API_KEY', 'Required for image generation'],
+        ['UNSPLASH_ACCESS_KEY', 'For image search via Unsplash'],
+        ['PEXELS_API_KEY', 'For image search via Pexels'],
+      ],
+    },
+  ],
+  footer: `Config file: ~/.config/prez/config.json (set via prez-image setup)\n\n${SLIDE_INDEX_DOCS}`,
+}
 
 interface Args {
   command: string
@@ -83,7 +116,28 @@ interface Args {
   pexelsKey?: string
 }
 
-function parseArgs(argv: string[]): Args {
+/**
+ * Detect the legacy `-h <number>` shape (pre-v1.2 meant `--height <n>`).
+ * In v1.2 `-h` is reserved for `--help`, consistent with every other prez
+ * CLI. A bare `-h 720` now means "help" under handleGlobalFlags, which
+ * would silently discard the user's intended height — so we error before
+ * that happens with a pointer to `--height`.
+ */
+function assertNoLegacyHeightAlias(argv: string[]): void {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '-h') continue
+    const next = argv[i + 1]
+    if (next === undefined) continue
+    // Tolerate the rare `-h` followed by a non-numeric value (treat as help
+    // upstream via handleGlobalFlags). Only the numeric shape is unambiguous
+    // evidence of the legacy height-alias usage.
+    if (/^-?\d+$/.test(next)) {
+      die('-h is reserved for --help. Use --height.', 2)
+    }
+  }
+}
+
+export function parseArgs(argv: string[]): Args {
   const args = argv.slice(2)
   const command = args[0]
   const noPositionalInput = command === 'setup' || command === 'models'
@@ -113,7 +167,6 @@ function parseArgs(argv: string[]): Args {
       case '--width':
         width = parseInt(args[++i], 10)
         break
-      case '-h':
       case '--height':
         height = parseInt(args[++i], 10)
         break
@@ -191,8 +244,7 @@ async function fetchAvailableModels(): Promise<string[]> {
 async function models() {
   const list = await fetchAvailableModels()
   if (!list.length) {
-    console.error('Error: could not fetch models from Pollinations API')
-    process.exit(1)
+    die('Error: could not fetch models from Pollinations API')
   }
   console.log('Available image generation models:\n')
   for (const name of list) {
@@ -206,45 +258,45 @@ async function models() {
 
 async function generate(args: Args) {
   if (!args.input) {
-    console.error(
-      'Error: prompt is required. Usage: prez image gen "your prompt" -o output.png',
+    die(
+      'Error: prompt is required. Usage: prez-image gen "your prompt" -o output.png',
     )
-    process.exit(1)
   }
   if (!args.output) {
-    console.error('Error: -o <output> is required')
-    process.exit(1)
+    die('Error: -o <output> is required')
   }
 
   const config = readConfig()
   const apiKey = process.env.POLLINATIONS_API_KEY || config.pollinations_api_key
 
   if (!apiKey) {
-    console.error('Error: No Pollinations API key configured.')
-    console.error('')
-    console.error('  Run: prez-image setup')
-    console.error('')
-    console.error('  Or set environment variable:')
-    console.error('    POLLINATIONS_API_KEY  https://pollinations.ai')
-    process.exit(1)
+    die(
+      [
+        'Error: No Pollinations API key configured.',
+        '',
+        '  Run: prez-image setup',
+        '',
+        '  Or set environment variable:',
+        '    POLLINATIONS_API_KEY  https://pollinations.ai',
+      ].join('\n'),
+    )
   }
 
   // Validate model name
   const availableModels = await fetchAvailableModels()
   if (availableModels.length > 0 && !availableModels.includes(args.model)) {
-    console.error(`Error: unknown model "${args.model}"`)
-    console.error(`Available models: ${availableModels.join(', ')}`)
-    process.exit(1)
+    die(
+      `Error: unknown model "${args.model}"\nAvailable models: ${availableModels.join(', ')}`,
+    )
   }
 
   // Validate quality value
   if (args.quality) {
     const validQualities = ['low', 'medium', 'high', 'hd']
     if (!validQualities.includes(args.quality)) {
-      console.error(
+      die(
         `Error: invalid quality "${args.quality}". Must be one of: ${validQualities.join(', ')}`,
       )
-      process.exit(1)
     }
   }
 
@@ -278,13 +330,11 @@ async function generate(args: Args) {
   } catch (err: unknown) {
     const e = err as Error
     if (e.name === 'AbortError') {
-      console.error(
+      die(
         'Error: generation timed out after 120s. Pollinations may be overloaded — try again.',
       )
-    } else {
-      console.error(`Error: ${e.message}`)
     }
-    process.exit(1)
+    die(`Error: ${e.message}`)
   } finally {
     clearTimeout(timeout)
   }
@@ -292,35 +342,26 @@ async function generate(args: Args) {
   if (!res.ok) {
     switch (res.status) {
       case 401:
-        console.error(
-          'Error: invalid API key. Check your key with: prez-image setup',
-        )
+        die('Error: invalid API key. Check your key with: prez-image setup')
         break
       case 402:
-        console.error(
-          `Error: model "${args.model}" requires a paid Pollinations plan.`,
-        )
-        console.error(
-          '  Use --model flux (free) or upgrade at https://pollinations.ai',
+        die(
+          `Error: model "${args.model}" requires a paid Pollinations plan.\n  Use --model flux (free) or upgrade at https://pollinations.ai`,
         )
         break
       case 429:
-        console.error(
-          'Error: rate limit exceeded. Wait a moment and try again.',
-        )
+        die('Error: rate limit exceeded. Wait a moment and try again.')
         break
       case 500:
       case 520:
-        console.error(
-          `Error: server error (${res.status}). The model may be temporarily unavailable.`,
+        die(
+          `Error: server error (${res.status}). The model may be temporarily unavailable.\n  Try again, or use a different model with --model`,
         )
-        console.error('  Try again, or use a different model with --model')
         break
       default:
-        console.error(`Error: Pollinations returned HTTP ${res.status}.`)
+        die(`Error: Pollinations returned HTTP ${res.status}.`)
         break
     }
-    process.exit(1)
   }
 
   const buffer = Buffer.from(await res.arrayBuffer())
@@ -335,8 +376,7 @@ async function validateAndSaveKeys(
   pexelsKey: string | undefined,
 ) {
   if (!pollinationsKey && !unsplashKey && !pexelsKey) {
-    console.error('No keys provided. Setup cancelled.')
-    process.exit(1)
+    die('No keys provided. Setup cancelled.')
   }
 
   if (pollinationsKey) {
@@ -345,10 +385,9 @@ async function validateAndSaveKeys(
         encodeURIComponent(pollinationsKey),
     )
     if (!res.ok) {
-      console.error(
+      die(
         `Pollinations key validation failed (HTTP ${res.status}). Check your key.`,
       )
-      process.exit(1)
     }
     console.log('Pollinations key validated.')
   }
@@ -359,10 +398,9 @@ async function validateAndSaveKeys(
       { headers: { Authorization: `Client-ID ${unsplashKey}` } },
     )
     if (!res.ok) {
-      console.error(
+      die(
         `Unsplash key validation failed (HTTP ${res.status}). Check your key.`,
       )
-      process.exit(1)
     }
     console.log('Unsplash key validated.')
   }
@@ -373,10 +411,7 @@ async function validateAndSaveKeys(
       { headers: { Authorization: pexelsKey } },
     )
     if (!res.ok) {
-      console.error(
-        `Pexels key validation failed (HTTP ${res.status}). Check your key.`,
-      )
-      process.exit(1)
+      die(`Pexels key validation failed (HTTP ${res.status}). Check your key.`)
     }
     console.log('Pexels key validated.')
   }
@@ -458,14 +493,12 @@ async function setup(args: Args) {
 
 async function search(args: Args) {
   if (!args.input) {
-    console.error(
+    die(
       'Error: query is required. Usage: prez-image search "your query" -o output.jpg',
     )
-    process.exit(1)
   }
   if (!args.output) {
-    console.error('Error: -o <output> is required')
-    process.exit(1)
+    die('Error: -o <output> is required')
   }
 
   const config = readConfig()
@@ -474,14 +507,17 @@ async function search(args: Args) {
   const pexelsKey = process.env.PEXELS_API_KEY || config.pexels_api_key
 
   if (!unsplashKey && !pexelsKey) {
-    console.error('Error: No image search API keys configured.')
-    console.error('')
-    console.error('  Run: prez-image setup')
-    console.error('')
-    console.error('  Or set environment variables:')
-    console.error('    UNSPLASH_ACCESS_KEY  https://unsplash.com/developers')
-    console.error('    PEXELS_API_KEY       https://www.pexels.com/api/')
-    process.exit(1)
+    die(
+      [
+        'Error: No image search API keys configured.',
+        '',
+        '  Run: prez-image setup',
+        '',
+        '  Or set environment variables:',
+        '    UNSPLASH_ACCESS_KEY  https://unsplash.com/developers',
+        '    PEXELS_API_KEY       https://www.pexels.com/api/',
+      ].join('\n'),
+    )
   }
 
   const providers = args.provider
@@ -513,15 +549,13 @@ async function search(args: Args) {
   }
 
   if (!imageUrl) {
-    console.error(`No results found for "${args.input}"`)
-    process.exit(1)
+    die(`No results found for "${args.input}"`)
   }
 
   console.log(`Downloading...`)
   const res = await fetch(imageUrl)
   if (!res.ok) {
-    console.error(`Error downloading image: ${res.status}`)
-    process.exit(1)
+    die(`Error downloading image: ${res.status}`)
   }
 
   const buffer = Buffer.from(await res.arrayBuffer())
@@ -569,20 +603,17 @@ async function searchPexels(
 
 async function render(args: Args) {
   if (!args.input) {
-    console.error(
-      'Error: SVG file is required. Usage: prez image render input.svg -o output.png',
+    die(
+      'Error: SVG file is required. Usage: prez-image render input.svg -o output.png',
     )
-    process.exit(1)
   }
   if (!args.output) {
-    console.error('Error: -o <output> is required')
-    process.exit(1)
+    die('Error: -o <output> is required')
   }
 
   const ext = extname(args.input).toLowerCase()
   if (ext !== '.svg') {
-    console.error('Error: input must be an .svg file')
-    process.exit(1)
+    die('Error: input must be an .svg file')
   }
 
   const { Resvg } = await import('@resvg/resvg-js')
@@ -603,6 +634,11 @@ async function render(args: Args) {
 }
 
 async function main() {
+  // Detect the legacy `-h <number>` shape BEFORE handleGlobalFlags so we can
+  // give a pointed error. After this, `-h` unambiguously means --help.
+  assertNoLegacyHeightAlias(process.argv)
+  handleGlobalFlags(process.argv, IMAGE_HELP_SPEC)
+
   const args = parseArgs(process.argv)
 
   switch (args.command) {
@@ -622,12 +658,11 @@ async function main() {
       await setup(args)
       break
     default:
-      console.log(USAGE)
+      printHelp(IMAGE_HELP_SPEC)
       break
   }
 }
 
 main().catch((err) => {
-  console.error(`Error: ${err.message}`)
-  process.exit(1)
+  die(`Error: ${err.message}`)
 })

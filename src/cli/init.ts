@@ -8,9 +8,44 @@ import {
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as p from '@clack/prompts'
+import { SLIDE_INDEX_DOCS } from '../slide-index.js'
+import { die, type HelpSpec, handleGlobalFlags } from './_cli-kit.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const prezRoot = resolve(__dirname, '..', '..')
+
+const INIT_HELP_SPEC: HelpSpec = {
+  name: 'prez',
+  summary: 'Zero-opinion presentation engine for AI',
+  usage: ['prez init [name] [options]', 'prez init [name] --yes [--no-skills]'],
+  sections: [
+    {
+      title: 'Commands',
+      rows: [['init [name]', 'Scaffold a new presentation (default: ./deck)']],
+    },
+    {
+      title: 'Options',
+      rows: [
+        ['-y, --yes', 'Non-interactive mode (for CI)'],
+        [
+          '--no-skills',
+          'Skip installing Claude skills into <deck>/.claude/skills/',
+        ],
+        ['-h, --help', 'Show this help and exit'],
+        ['-V, --version', 'Print version and exit'],
+      ],
+    },
+    {
+      title: 'Examples',
+      rows: [
+        ['prez init', 'Interactive wizard, scaffolds ./deck'],
+        ['prez init mydeck --yes', 'Non-interactive scaffold at ./mydeck'],
+        ['prez init d --yes --no-skills', 'CI scaffold without Claude skills'],
+      ],
+    },
+  ],
+  footer: SLIDE_INDEX_DOCS,
+}
 
 function linkPrezDependency(targetDir: string) {
   const pkgPath = join(targetDir, 'package.json')
@@ -19,10 +54,18 @@ function linkPrezDependency(targetDir: string) {
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
-function installSkills() {
+/**
+ * Copy every skill under `prezRoot/skills/` into `<targetDir>/.claude/skills/`.
+ *
+ * Skills belong to the deck they scaffold, not to the cwd the user happened to
+ * run `prez init` from. Writing them to cwd leaks a `.claude/` directory into
+ * unrelated parent projects when agents run `prez init deck` from their repo
+ * root.
+ */
+function installSkills(targetDir: string) {
   const skillsSrc = join(prezRoot, 'skills')
   if (!existsSync(skillsSrc)) return
-  const skillsDest = join(process.cwd(), '.claude', 'skills')
+  const skillsDest = join(targetDir, '.claude', 'skills')
   mkdirSync(skillsDest, { recursive: true })
   cpSync(skillsSrc, skillsDest, { recursive: true })
 }
@@ -37,6 +80,8 @@ function updateManifest(targetDir: string, name: string) {
 }
 
 async function main() {
+  handleGlobalFlags(process.argv, INIT_HELP_SPEC)
+
   const args = process.argv.slice(2)
   const command = args[0]
 
@@ -44,35 +89,38 @@ async function main() {
     const positionalName =
       args[1] && !args[1].startsWith('-') ? args[1] : undefined
     const isNonInteractive = args.includes('--yes') || args.includes('-y')
+    const noSkills = args.includes('--no-skills')
 
     if (isNonInteractive) {
       // Non-interactive path for CI
       const target = resolve(process.cwd(), positionalName || 'deck')
 
       if (existsSync(target)) {
-        console.error(`Error: ${target} already exists.`)
-        process.exit(1)
+        die(`Error: ${target} already exists.`)
       }
 
       const templateDir = join(__dirname, '..', '..', 'template')
 
       if (!existsSync(templateDir)) {
-        console.error(
+        die(
           'Error: template directory not found. Is the prez package installed correctly?',
         )
-        process.exit(1)
       }
 
       mkdirSync(target, { recursive: true })
       cpSync(templateDir, target, { recursive: true })
       linkPrezDependency(target)
       updateManifest(target, positionalName || 'deck')
-      installSkills()
+      if (!noSkills) {
+        installSkills(target)
+      }
 
       console.log(`Created presentation at ${target}`)
-      console.log(
-        `Installed Claude skills to ${resolve(process.cwd(), '.claude', 'skills')}`,
-      )
+      if (!noSkills) {
+        console.log(
+          `Installed Claude skills to ${join(target, '.claude', 'skills')}`,
+        )
+      }
       console.log(`\nNext steps:`)
       console.log(`  cd ${positionalName || 'deck'}`)
       console.log('  bun install')
@@ -80,6 +128,11 @@ async function main() {
     } else {
       // Interactive wizard
       p.intro('prez — Create a new presentation')
+
+      // If --no-skills is on argv, pre-answer the confirm prompt so the
+      // interactive path doesn't ask about something the user already
+      // opted out of.
+      const skillsPreAnswer = noSkills ? false : undefined
 
       const answers = await p.group(
         {
@@ -102,11 +155,13 @@ async function main() {
               initialValue: true,
             }),
           installSkills: () =>
-            p.confirm({
-              message:
-                'Install Claude Code skills? (prez + prez-image skills to .claude/skills/)',
-              initialValue: true,
-            }),
+            skillsPreAnswer === false
+              ? Promise.resolve(false)
+              : p.confirm({
+                  message:
+                    'Install Claude Code skills? (prez + prez-image + prez-validate skills to <deck>/.claude/skills/)',
+                  initialValue: true,
+                }),
         },
         {
           onCancel: () => {
@@ -134,7 +189,7 @@ async function main() {
       linkPrezDependency(target)
       updateManifest(target, answers.name)
       if (answers.installSkills) {
-        installSkills()
+        installSkills(target)
       }
 
       s.stop('Presentation scaffolded')
@@ -164,13 +219,11 @@ async function main() {
       p.outro('Happy presenting!')
     }
   } else {
-    console.log('prez - Zero-opinion presentation engine for AI\n')
-    console.log('Usage:')
-    console.log(
-      '  prez init [name]         Scaffold a new presentation (default: ./deck)',
-    )
-    console.log('  prez init [name] --yes   Non-interactive mode (for CI)')
-    console.log('')
+    // No subcommand: print help and exit.
+    // handleGlobalFlags above already handles --help / -h / --version / -V.
+    // This branch covers bare `prez` with no args or unrecognized subcommand.
+    const { printHelp } = await import('./_cli-kit.js')
+    printHelp(INIT_HELP_SPEC)
   }
 }
 

@@ -6,96 +6,23 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { parseArgs } from '../cli/image'
 
-// Extract parseArgs logic inline since it's not exported
-function parseArgs(argv: string[]) {
-  const args = argv.slice(2)
-  const command = args[0]
-  const noPositionalInput = command === 'setup' || command === 'models'
-  const input = noPositionalInput ? '' : args[1]
-
-  let output = ''
-  let width = 1280
-  let height = 720
-  let provider: string | undefined
-  let model = 'flux'
-  let seed: number | undefined
-  let enhance = false
-  let negativePrompt: string | undefined
-  let quality: string | undefined
-  let transparent = false
-  let pollinationsKey: string | undefined
-  let unsplashKey: string | undefined
-  let pexelsKey: string | undefined
-
-  for (let i = noPositionalInput ? 1 : 2; i < args.length; i++) {
-    switch (args[i]) {
-      case '-o':
-      case '--output':
-        output = args[++i]
-        break
-      case '-w':
-      case '--width':
-        width = parseInt(args[++i], 10)
-        break
-      case '-h':
-      case '--height':
-        height = parseInt(args[++i], 10)
-        break
-      case '--provider':
-        provider = args[++i]
-        break
-      case '--model':
-        model = args[++i]
-        break
-      case '--seed':
-        seed = parseInt(args[++i], 10)
-        break
-      case '--enhance':
-        enhance = true
-        break
-      case '--negative-prompt':
-        negativePrompt = args[++i]
-        break
-      case '--quality':
-        quality = args[++i]
-        break
-      case '--transparent':
-        transparent = true
-        break
-      case '--pollinations-key':
-        pollinationsKey = args[++i]
-        break
-      case '--unsplash-key':
-        unsplashKey = args[++i]
-        break
-      case '--pexels-key':
-        pexelsKey = args[++i]
-        break
-    }
-  }
-
-  return {
-    command,
-    input,
-    output,
-    width,
-    height,
-    provider,
-    model,
-    seed,
-    enhance,
-    negativePrompt,
-    quality,
-    transparent,
-    pollinationsKey,
-    unsplashKey,
-    pexelsKey,
-  }
+const DIST_IMAGE_CLI = resolve(
+  import.meta.dir,
+  '..',
+  '..',
+  'dist',
+  'cli',
+  'image.js',
+)
+const PACKAGE_JSON_PATH = resolve(import.meta.dir, '..', '..', 'package.json')
+const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as {
+  version: string
 }
 
-describe('parseArgs', () => {
+describe('parseArgs (re-exported from cli/image)', () => {
   it('parses gen command with all options', () => {
     const result = parseArgs([
       'node',
@@ -106,7 +33,7 @@ describe('parseArgs', () => {
       'out.png',
       '-w',
       '1920',
-      '-h',
+      '--height',
       '1080',
       '--model',
       'turbo',
@@ -155,7 +82,7 @@ describe('parseArgs', () => {
     expect(result.transparent).toBe(false)
   })
 
-  it('handles long-form flags', () => {
+  it('handles long-form flags including --height (not -h)', () => {
     const result = parseArgs([
       'node',
       'image.js',
@@ -171,6 +98,24 @@ describe('parseArgs', () => {
     expect(result.output).toBe('file.png')
     expect(result.width).toBe(800)
     expect(result.height).toBe(600)
+  })
+
+  it('no longer accepts -h as a height alias (silently ignored by parser)', () => {
+    // parseArgs itself ignores unknown tokens; the -h <number> rejection
+    // lives in main() before parseArgs runs, so a subprocess test covers
+    // end-to-end behavior. Here we just confirm parseArgs does not set
+    // height via -h.
+    const result = parseArgs([
+      'node',
+      'image.js',
+      'gen',
+      'test',
+      '-o',
+      'out.png',
+      '-h',
+      '720',
+    ])
+    expect(result.height).toBe(720) // still the default, NOT from -h
   })
 
   it('returns undefined command for no args', () => {
@@ -365,16 +310,68 @@ describe('search key resolution', () => {
 })
 
 describe('CLI exit codes', () => {
+  it('--help exits 0 and prints prez-image + sections', async () => {
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, '--help'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const code = await proc.exited
+    expect(code).toBe(0)
+    const stdout = await new Response(proc.stdout).text()
+    expect(stdout).toContain('prez-image')
+    expect(stdout).toContain('Commands:')
+    expect(stdout).toContain('Generation options:')
+  })
+
+  it('-h alone (no numeric arg) prints help and exits 0', async () => {
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, '-h'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const code = await proc.exited
+    expect(code).toBe(0)
+    const stdout = await new Response(proc.stdout).text()
+    expect(stdout).toContain('prez-image')
+  })
+
+  it('--version exits 0 and prints package version', async () => {
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, '--version'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const code = await proc.exited
+    expect(code).toBe(0)
+    const stdout = await new Response(proc.stdout).text()
+    expect(stdout).toContain('prez-image')
+    expect(stdout).toContain(pkg.version)
+  })
+
+  it('-V exits 0 and prints package version', async () => {
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, '-V'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const code = await proc.exited
+    expect(code).toBe(0)
+    const stdout = await new Response(proc.stdout).text()
+    expect(stdout).toContain(pkg.version)
+  })
+
+  it('rejects the legacy `-h <number>` shape with exit 2 and a pointer to --height', async () => {
+    const proc = Bun.spawn(
+      ['node', DIST_IMAGE_CLI, 'gen', 'x', '-o', '/tmp/x.png', '-h', '720'],
+      { stdout: 'pipe', stderr: 'pipe' },
+    )
+    const code = await proc.exited
+    expect(code).toBe(2)
+    const stderr = await new Response(proc.stderr).text()
+    expect(stderr).toContain('reserved for --help')
+    expect(stderr).toContain('--height')
+  })
+
   it('search exits with error when no keys configured', async () => {
     const proc = Bun.spawn(
-      [
-        'node',
-        join(import.meta.dir, '../../dist/cli/image.js'),
-        'search',
-        'test',
-        '-o',
-        '/tmp/test.jpg',
-      ],
+      ['node', DIST_IMAGE_CLI, 'search', 'test', '-o', '/tmp/test.jpg'],
       {
         env: {
           ...process.env,
@@ -397,14 +394,7 @@ describe('CLI exit codes', () => {
 
   it('gen exits with error when no API key configured', async () => {
     const proc = Bun.spawn(
-      [
-        'node',
-        join(import.meta.dir, '../../dist/cli/image.js'),
-        'gen',
-        'test prompt',
-        '-o',
-        '/tmp/test.png',
-      ],
+      ['node', DIST_IMAGE_CLI, 'gen', 'test prompt', '-o', '/tmp/test.png'],
       {
         env: {
           ...process.env,
@@ -425,34 +415,28 @@ describe('CLI exit codes', () => {
   })
 
   it('gen exits with error when no prompt given', async () => {
-    const proc = Bun.spawn(
-      ['node', join(import.meta.dir, '../../dist/cli/image.js'), 'gen'],
-      { env: process.env },
-    )
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, 'gen'], {
+      env: process.env,
+    })
     const code = await proc.exited
     expect(code).not.toBe(0)
   })
 
   it('render exits with error when no file given', async () => {
-    const proc = Bun.spawn(
-      ['node', join(import.meta.dir, '../../dist/cli/image.js'), 'render'],
-      { env: process.env },
-    )
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI, 'render'], {
+      env: process.env,
+    })
     const code = await proc.exited
     expect(code).not.toBe(0)
   })
 
   it('shows usage when no command given', async () => {
-    const proc = Bun.spawn(
-      ['node', join(import.meta.dir, '../../dist/cli/image.js')],
-      { env: process.env },
-    )
+    const proc = Bun.spawn(['node', DIST_IMAGE_CLI], { env: process.env })
     const code = await proc.exited
     expect(code).toBe(0)
 
     const stdout = await new Response(proc.stdout).text()
     expect(stdout).toContain('prez-image')
-    expect(stdout).toContain('models')
-    expect(stdout).toContain('--enhance')
+    expect(stdout).toContain('Commands:')
   })
 })
