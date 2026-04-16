@@ -1,20 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { asInternal, type InternalSlideIndex } from '../slide-index'
 
+// The URL hash carries 0-based InternalSlideIndex values (`#/0`, `#/1`, ...).
+// Agents and CLI consumers see 1-based ExternalSlideNumber — the conversion
+// happens at the CLI boundary. See SLIDE_INDEX_DOCS in ../slide-index.ts.
 export function useNavigation(totalSlides: number) {
-  const initialSlide = () => {
-    if (typeof window === 'undefined') return 0
+  const initialSlide = (): InternalSlideIndex => {
+    if (typeof window === 'undefined') return asInternal(0)
     const hash = window.location.hash.replace('#/', '')
     const n = parseInt(hash, 10)
-    return Number.isFinite(n) && n >= 0 && n < totalSlides ? n : 0
+    return Number.isFinite(n) && n >= 0 && n < totalSlides
+      ? asInternal(n)
+      : asInternal(0)
   }
 
-  const [current, setCurrent] = useState(initialSlide)
+  const [current, setCurrent] = useState<InternalSlideIndex>(initialSlide)
   const containerRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
 
   const goTo = useCallback(
     (index: number) => {
-      const clamped = Math.max(0, Math.min(index, totalSlides - 1))
+      const clamped: InternalSlideIndex = asInternal(
+        Math.max(0, Math.min(index, totalSlides - 1)),
+      )
       setCurrent(clamped)
       window.history.replaceState(null, '', `#/${clamped}`)
     },
@@ -87,7 +95,7 @@ export function useNavigation(totalSlides: number) {
       const hash = window.location.hash.replace('#/', '')
       const n = parseInt(hash, 10)
       if (Number.isFinite(n) && n >= 0 && n < totalSlides) {
-        setCurrent(n)
+        setCurrent(asInternal(n))
       }
     }
 

@@ -82,6 +82,27 @@ screenshot engine) build on.
   interactive confirm prompt when present on argv.
 
 ### Fixed
+- `Deck` gained a `?screenshot=N` render mode: renders a single slide
+  at exact 1280×720 pixels with no aspect-ratio scaling container,
+  no outer 100vw/100vh wrapper, and no interactive chrome. The
+  previous screenshot path (`#/N` against the normal render) passed
+  through the scaling container whose viewport sensitivity produced
+  letterbox bars on slides with full-bleed backgrounds. Screenshots
+  now match the PDF print output pixel-for-pixel.
+- `screenshotSlide` (node API) now takes a 1-based `ExternalSlideNumber`
+  and builds URLs via the canonical `screenshotUrl` helper. Migrated
+  from the `--screenshot` / `--window-size` CLI flags (whose Linux
+  viewport reservation produced the sub-720 inner canvas that drove
+  the letterbox bug) to the WS-F `ChromeBrowser` / `ChromeSession`
+  CDP client, which pins the viewport via
+  `Emulation.setDeviceMetricsOverride`. This is a breaking change for
+  callers of the internal `screenshotSlide` export — the only public
+  surface is `@enriquefft/prez/node`'s re-exports from WS-F, which
+  already use the 1-based convention.
+- `export-pptx` screenshot loop now launches one Chrome process for
+  the full export (one session per slide) instead of one browser per
+  slide, and updated to the 1-based convention. Visually identical
+  output with the letterbox bug removed.
 - `src/scripts/serve-dist.ts` path-traversal check replaced. The
   prefix-only `filePath.startsWith(distDir)` test falsely accepted
   sibling-prefix paths (e.g. with `distDir=/tmp/dist`, any

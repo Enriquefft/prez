@@ -13,6 +13,7 @@ import { DeckContext } from '../context'
 import { useNavigation } from '../hooks/use-navigation'
 import { usePresenter } from '../hooks/use-presenter'
 import { Presenter } from '../presenter/Presenter'
+import { parseRenderMode, type RenderMode } from '../render-modes'
 import { Notes } from './Notes'
 
 function flattenChildren(children: ReactNode): ReactElement[] {
@@ -362,14 +363,67 @@ export function Deck({
   }
 
   const totalSlides = slides.length
+
+  // Resolve render mode once from the URL contract (SSOT: render-modes.ts).
+  // Screenshot and print modes skip all interactive infrastructure — the
+  // normal / presenter branches share the rest of the hook graph below.
+  const [mode] = useState<RenderMode>(() => {
+    if (typeof window === 'undefined') return { kind: 'normal' }
+    return parseRenderMode(window.location.search)
+  })
+
+  if (mode.kind === 'screenshot') {
+    return (
+      <ScreenshotRender
+        slides={slides}
+        totalSlides={totalSlides}
+        requestedSlide={mode.slide}
+        aspectRatio={aspectRatio}
+      />
+    )
+  }
+
+  return (
+    <InteractiveDeck
+      slides={slides}
+      totalSlides={totalSlides}
+      mode={mode}
+      aspectRatio={aspectRatio}
+      transition={transition}
+      showFullscreenButton={showFullscreenButton}
+      downloadUrl={downloadUrl}
+      className={className}
+      style={style}
+    />
+  )
+}
+
+interface InteractiveDeckProps {
+  slides: ReactElement[]
+  totalSlides: number
+  mode: RenderMode
+  aspectRatio: string
+  transition: 'none' | 'fade' | 'slide'
+  showFullscreenButton: boolean
+  downloadUrl: string | { pdf?: string; pptx?: string } | undefined
+  className: string | undefined
+  style: CSSProperties | undefined
+}
+
+function InteractiveDeck({
+  slides,
+  totalSlides,
+  mode,
+  aspectRatio,
+  transition,
+  showFullscreenButton,
+  downloadUrl,
+  className,
+  style,
+}: InteractiveDeckProps) {
   const { current, goTo, next, prev, containerRef } = useNavigation(totalSlides)
   const { isPresenter, broadcast, registerNotes } = usePresenter(current, goTo)
-
-  // Detect print mode via ?print=true URL param
-  const [isPrint] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return new URLSearchParams(window.location.search).get('print') === 'true'
-  })
+  const isPrint = mode.kind === 'print'
 
   // Broadcast slide changes
   const prevSlide = useRef(current)
@@ -556,5 +610,131 @@ export function Deck({
         )}
       </div>
     </DeckContext.Provider>
+  )
+}
+
+/**
+ * Pure render for pixel-capture: a single slide at exactly 1280×720 with
+ * no aspect-ratio scaling container, no outer 100vw/100vh wrapper, no
+ * #000 letterbox background, and no interactive chrome.
+ *
+ * The goal: Chrome's viewport is 1280×720, and the DOM occupies exactly
+ * those bytes — the capture is 1:1. This replaces the legacy path that
+ * hit the normal render (`#/N`) whose scaling container produced
+ * subtle letterbox bars on slides with full-bleed backgrounds.
+ *
+ * Out-of-range `requestedSlide` renders a dedicated error state so
+ * screenshot consumers can detect and fail loudly via the
+ * `data-prez-error` attribute.
+ *
+ * After the DOM mounts and all `<img>` elements complete loading, sets
+ * `window.__prezReady = true`. Future CDP-based waiters can evaluate
+ * this flag instead of relying on `Page.loadEventFired`.
+ */
+function ScreenshotRender({
+  slides,
+  totalSlides,
+  requestedSlide,
+  aspectRatio,
+}: {
+  slides: ReactElement[]
+  totalSlides: number
+  requestedSlide: number
+  aspectRatio: string
+}) {
+  const [arW, arH] = aspectRatio.split('/').map(Number)
+  const slideWidth = 1280
+  const slideHeight = slideWidth * (arH / arW)
+
+  const outOfRange = requestedSlide < 0 || requestedSlide >= totalSlides
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as unknown as { __prezReady?: boolean }
+    w.__prezReady = false
+
+    const pending = Array.from(document.querySelectorAll('img')).filter(
+      (img) => !img.complete,
+    )
+    if (pending.length === 0) {
+      w.__prezReady = true
+      return
+    }
+
+    let remaining = pending.length
+    const resolve = () => {
+      remaining -= 1
+      if (remaining <= 0) w.__prezReady = true
+    }
+    const cleanups: Array<() => void> = []
+    for (const img of pending) {
+      const onLoad = () => {
+        resolve()
+      }
+      const onError = () => {
+        resolve()
+      }
+      img.addEventListener('load', onLoad, { once: true })
+      img.addEventListener('error', onError, { once: true })
+      cleanups.push(() => {
+        img.removeEventListener('load', onLoad)
+        img.removeEventListener('error', onError)
+      })
+    }
+    return () => {
+      for (const c of cleanups) c()
+    }
+  }, [])
+
+  const rootStyle: CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: slideWidth,
+    height: slideHeight,
+    overflow: 'hidden',
+    background: 'transparent',
+    margin: 0,
+    padding: 0,
+  }
+
+  const injectedCss = `
+    html, body, #root {
+      width: ${slideWidth}px;
+      height: ${slideHeight}px;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+    * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  `
+
+  if (outOfRange) {
+    return (
+      <>
+        <style>{injectedCss}</style>
+        <div
+          data-prez-error="out-of-range"
+          data-prez-total={totalSlides}
+          data-prez-slide={requestedSlide}
+          style={rootStyle}
+        />
+      </>
+    )
+  }
+
+  const slide = slides[requestedSlide]
+  return (
+    <>
+      <style>{injectedCss}</style>
+      <div
+        data-prez-total={totalSlides}
+        data-prez-slide={requestedSlide}
+        style={rootStyle}
+      >
+        <div style={{ position: 'absolute', inset: 0 }}>{slide}</div>
+      </div>
+    </>
   )
 }
