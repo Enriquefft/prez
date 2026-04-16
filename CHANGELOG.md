@@ -28,6 +28,23 @@ screenshot engine) build on.
   Exported from `@enriquefft/prez/node`.
 - `ValidateEvent` NDJSON event schema in `src/node.ts`. WS-C wires this
   into `validateScreenshots` via a new `onEvent` option.
+- `ChromeBrowser` / `ChromeSession` / `ChromeCdpError` in
+  `src/scripts/chrome-cdp.ts`: minimal Chrome DevTools Protocol client
+  over native `WebSocket` (no `ws` / `puppeteer` /
+  `chrome-remote-interface` dependency). One Chrome process, N flat
+  sessions — launch/attach/setDeviceMetricsOverride/navigate/
+  loadEventFired/captureScreenshot primitives. User-data-dir cleaned
+  up on every success and failure path. Re-exported from
+  `@enriquefft/prez/node`.
+- `screenshotSlides` in `src/scripts/parallel-screenshot.ts`:
+  bounded-concurrency pool over `ChromeSession`. FIFO queue, session
+  rotation on failure, bounded retries (`maxRetriesPerSlide`, default
+  2). Emits `ValidateEvent` `slide` / `error` events via `onEvent`;
+  returns `{ succeeded, failed }` summary. URL construction goes
+  through the SSOT `screenshotUrl` helper so the Deck render-mode
+  contract has exactly one producer. Re-exported from
+  `@enriquefft/prez/node`. Consumer-facing wiring (validate CLI
+  `--concurrency` flag) lands with WS-C.
 
 ### Changed
 - Minimum Node version raised from 18 to 22 (LTS through April 2027).

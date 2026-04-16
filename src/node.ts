@@ -5,6 +5,20 @@ export {
   printUrl,
   screenshotUrl,
 } from './render-modes'
+export type {
+  ChromeLaunchOptions,
+  ScreenshotOptions,
+} from './scripts/chrome-cdp'
+export {
+  ChromeBrowser,
+  ChromeCdpError,
+  ChromeSession,
+} from './scripts/chrome-cdp'
+export type {
+  ParallelScreenshotOptions,
+  ParallelScreenshotResult,
+} from './scripts/parallel-screenshot'
+export { screenshotSlides } from './scripts/parallel-screenshot'
 export type { SafeCleanReport } from './scripts/safe-clean'
 export { safeCleanScreenshotsDir } from './scripts/safe-clean'
 export type {
