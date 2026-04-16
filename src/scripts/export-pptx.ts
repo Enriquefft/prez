@@ -1,7 +1,6 @@
-import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { getChrome } from './find-chrome'
+import { getSlideCount, screenshotSlide } from './screenshot-slide.js'
 
 export async function exportPptx(
   url: string,
@@ -9,40 +8,19 @@ export async function exportPptx(
   timeout = 30000,
 ): Promise<void> {
   const PptxGenJS = (await import('pptxgenjs')).default
-  const chrome = getChrome()
 
   const tmpDir = join(process.cwd(), '.prez-export-tmp')
   mkdirSync(tmpDir, { recursive: true })
 
-  const chromeFlags = [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-sandbox',
-    '--disable-features=LazyImageLoading',
-    `--virtual-time-budget=${timeout}`,
-    '--run-all-compositor-stages-before-draw',
-  ].join(' ')
-
   try {
     console.log(`Exporting PPTX from ${url}`)
-    console.log(`Using: ${chrome}`)
 
-    const printHtml = execSync(
-      `"${chrome}" --headless=new --disable-gpu --no-sandbox --virtual-time-budget=${timeout} --dump-dom "${url}?print=true"`,
-      { stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 50 * 1024 * 1024 },
-    ).toString()
-
-    const totalMatch = printHtml.match(/data-prez-total="(\d+)"/)
-    const totalSlides = totalMatch ? Number.parseInt(totalMatch[1], 10) : 1
-
+    const totalSlides = await getSlideCount(url, timeout)
     console.log(`Found ${totalSlides} slides`)
 
     for (let i = 0; i < totalSlides; i++) {
       const screenshotPath = join(tmpDir, `slide-${i}.png`)
-      execSync(
-        `"${chrome}" ${chromeFlags} --screenshot="${screenshotPath}" --window-size=1280,720 "${url}#/${i}"`,
-        { stdio: 'pipe' },
-      )
+      await screenshotSlide(url, i, screenshotPath, timeout)
       console.log(`  Captured slide ${i + 1}/${totalSlides}`)
     }
 
@@ -71,7 +49,6 @@ export async function exportPptx(
   }
 }
 
-// Run as standalone script
 if (
   typeof Bun !== 'undefined'
     ? Bun.main === import.meta.path

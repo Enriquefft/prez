@@ -19,6 +19,14 @@ function linkPrezDependency(targetDir: string) {
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
+function installSkills() {
+  const skillsSrc = join(prezRoot, 'skills')
+  if (!existsSync(skillsSrc)) return
+  const skillsDest = join(process.cwd(), '.claude', 'skills')
+  mkdirSync(skillsDest, { recursive: true })
+  cpSync(skillsSrc, skillsDest, { recursive: true })
+}
+
 function updateManifest(targetDir: string, name: string) {
   const manifestPath = join(targetDir, 'public', 'manifest.json')
   if (!existsSync(manifestPath)) return
@@ -59,8 +67,12 @@ async function main() {
       cpSync(templateDir, target, { recursive: true })
       linkPrezDependency(target)
       updateManifest(target, positionalName || 'deck')
+      installSkills()
 
       console.log(`Created presentation at ${target}`)
+      console.log(
+        `Installed Claude skills to ${resolve(process.cwd(), '.claude', 'skills')}`,
+      )
       console.log(`\nNext steps:`)
       console.log(`  cd ${positionalName || 'deck'}`)
       console.log('  bun install')
@@ -89,6 +101,12 @@ async function main() {
                 'Include image tools? (prez-image for AI generation, photo search, SVG rendering)',
               initialValue: true,
             }),
+          installSkills: () =>
+            p.confirm({
+              message:
+                'Install Claude Code skills? (prez + prez-image skills to .claude/skills/)',
+              initialValue: true,
+            }),
         },
         {
           onCancel: () => {
@@ -115,6 +133,9 @@ async function main() {
       cpSync(templateDir, target, { recursive: true })
       linkPrezDependency(target)
       updateManifest(target, answers.name)
+      if (answers.installSkills) {
+        installSkills()
+      }
 
       s.stop('Presentation scaffolded')
 

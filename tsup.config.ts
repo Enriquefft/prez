@@ -10,7 +10,21 @@ export default defineConfig([
     external: ['react', 'react-dom'],
   },
   {
-    entry: ['src/cli/init.ts', 'src/cli/image.ts', 'src/cli/export.ts'],
+    entry: ['src/node.ts'],
+    format: ['esm', 'cjs'],
+    dts: true,
+    sourcemap: true,
+    clean: false,
+    platform: 'node',
+    external: ['pptxgenjs'],
+  },
+  {
+    entry: [
+      'src/cli/init.ts',
+      'src/cli/image.ts',
+      'src/cli/export.ts',
+      'src/cli/validate.ts',
+    ],
     external: ['pptxgenjs'],
     format: ['esm'],
     banner: { js: '#!/usr/bin/env node' },

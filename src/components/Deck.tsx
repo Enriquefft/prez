@@ -454,6 +454,7 @@ export function Deck({
         <style>{`
           @page { size: ${widthMm}mm ${heightMm}mm; margin: 0; }
           * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          html, body, #root { width: auto !important; height: auto !important; overflow: visible !important; }
         `}</style>
         <div data-prez-total={totalSlides}>
           {slides.map((slide, i) => (

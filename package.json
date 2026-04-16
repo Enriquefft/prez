@@ -14,12 +14,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.cjs"
     }
   },
   "bin": {
     "prez": "./dist/cli/init.js",
     "prez-image": "./dist/cli/image.js",
-    "prez-export": "./dist/cli/export.js"
+    "prez-export": "./dist/cli/export.js",
+    "prez-validate": "./dist/cli/validate.js"
   },
   "files": [
     "dist",
