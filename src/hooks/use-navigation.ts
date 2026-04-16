@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { presenterUrl } from '../render-modes.js'
 import { asInternal, type InternalSlideIndex } from '../slide-index'
 
 // The URL hash carries 0-based InternalSlideIndex values (`#/0`, `#/1`, ...).
@@ -35,8 +36,11 @@ export function useNavigation(totalSlides: number) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && e.shiftKey && e.key === 'P') {
+        // SSOT: route through presenterUrl() so the ?presenter=true wire
+        // format lives in exactly one module (src/render-modes.ts).
+        const base = `${window.location.origin}${window.location.pathname}${window.location.hash}`
         window.open(
-          `${window.location.origin}${window.location.pathname}?presenter=true${window.location.hash}`,
+          presenterUrl(base),
           'prez-presenter',
           'width=1200,height=800',
         )

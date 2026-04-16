@@ -53,9 +53,12 @@ One line per `ValidateEvent`, parseable with `jq -c .`. Typical shape:
 ```
 {"type":"start","totalSlides":4,"outputDir":"/abs/screenshots","url":"http://127.0.0.1:xxxx/","mode":"diff"}
 {"type":"slide","slide":1,"path":"/abs/screenshots/slide-01.png","durationMs":842}
-{"type":"diff","slide":1,"baseline":"/abs/baseline/slide-01.png","current":"/abs/screenshots/slide-01.png","diffPath":"/abs/screenshots/diff-01.png","diffRatio":0.0003,"pass":true}
+{"type":"diff","slide":1,"baseline":"/abs/baseline/slide-01.png","current":"/abs/screenshots/slide-01.png","diffPath":null,"diffRatio":0.0003,"pass":true}
+{"type":"diff","slide":2,"baseline":"/abs/baseline/slide-02.png","current":"/abs/screenshots/slide-02.png","diffPath":"/abs/screenshots/diff-02.png","diffRatio":0.0421,"pass":false}
 {"type":"done","outputDir":"/abs/screenshots","slidesValidated":4,"durationMs":3521,"diffFailures":0}
 ```
+
+`diffPath` is `null` on passing slides (no heatmap is written) and an absolute path on failing slides. Don't `stat(diffPath)` unconditionally.
 
 Other event types: `warn` (non-fatal), `error` (per-slide capture failure).
 

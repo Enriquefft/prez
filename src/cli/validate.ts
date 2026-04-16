@@ -134,7 +134,6 @@ export function parseValidateArgs(argv: string[]): ValidateArgs {
   let json = false
   let jsonManifest = false
   let concurrency = defaultConcurrency()
-  let concurrencyExplicit = false
   let diff: string | undefined
   let threshold = 0.005
   let watchFlag = false
@@ -178,7 +177,6 @@ export function parseValidateArgs(argv: string[]): ValidateArgs {
         concurrency = clampConcurrency(
           parsePositiveInt(args[++i], '--concurrency'),
         )
-        concurrencyExplicit = true
         break
       case '--diff':
         if (args[i + 1] === undefined) die('Error: --diff requires a value')
@@ -209,11 +207,6 @@ export function parseValidateArgs(argv: string[]): ValidateArgs {
   if (json && jsonManifest) {
     die('Error: --json and --json-manifest are mutually exclusive', 2)
   }
-
-  // Silence the unused-variable warning; keeping the marker in the shape
-  // avoids a second lookup pass in consumers that want to know whether the
-  // user explicitly picked a concurrency.
-  void concurrencyExplicit
 
   return {
     slide,

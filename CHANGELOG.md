@@ -45,6 +45,28 @@ screenshot engine) build on.
   contract has exactly one producer. Re-exported from
   `@enriquefft/prez/node`. Consumer-facing wiring (validate CLI
   `--concurrency` flag) lands with WS-C.
+- `prez init --no-skills`: skip the Claude-skills install step in
+  non-interactive (`--yes`) and interactive runs. Pre-answers the
+  interactive confirm prompt when present on argv.
+- `prez-validate --diff <baseline-dir>`: pixel-perfect visual regression.
+  Per-slide Euclidean RGB diff with configurable `--threshold`
+  (default 0.5%). Diverging slides get a `diff-NN.png` heatmap written
+  alongside the new screenshot. Exits 2 if any slide exceeds threshold
+  — directly wire-able into agent review loops.
+- `prez-validate --watch` (requires `--build`): re-captures screenshots
+  on `src/` changes via Node 22's recursive `fs.watch`. Persistent
+  static server across rebuilds; SIGINT cleans up watcher + server.
+- `prez-validate --concurrency N` (default `min(cpus, 8)`, clamp
+  `[1, 16]`): captures slides in parallel via WS-F's
+  `screenshotSlides`. A 50-slide deck now captures in ~N× less
+  wall-clock than the sequential path.
+- `prez-validate --json`: emits one NDJSON event per `ValidateEvent`
+  (start / slide / diff / warn / error / done) to stdout. Agent
+  consumers can stream progress instead of waiting for a final blob.
+- `prez-validate --json-manifest`: legacy single-JSON-blob output
+  preserved for v1.1 consumers; emits a deprecation notice on stderr.
+- `diffPng` exported from `@enriquefft/prez/node` for programmatic
+  diffing. Depends on `pngjs`.
 
 ### Changed
 - Minimum Node version raised from 18 to 22 (LTS through April 2027).
@@ -75,30 +97,6 @@ screenshot engine) build on.
   `-h <number>` now exits with `"-h is reserved for --help. Use
   --height."` (exit code 2). **Breaking** for callers using
   `-h <px>` — replace with `--height <px>`.
-
-### Added (continued)
-- `prez init --no-skills`: skip the Claude-skills install step in
-  non-interactive (`--yes`) and interactive runs. Pre-answers the
-  interactive confirm prompt when present on argv.
-- `prez-validate --diff <baseline-dir>`: pixel-perfect visual regression.
-  Per-slide Euclidean RGB diff with configurable `--threshold`
-  (default 0.5%). Diverging slides get a `diff-NN.png` heatmap written
-  alongside the new screenshot. Exits 2 if any slide exceeds threshold
-  — directly wire-able into agent review loops.
-- `prez-validate --watch` (requires `--build`): re-captures screenshots
-  on `src/` changes via Node 22's recursive `fs.watch`. Persistent
-  static server across rebuilds; SIGINT cleans up watcher + server.
-- `prez-validate --concurrency N` (default `min(cpus, 8)`, clamp
-  `[1, 16]`): captures slides in parallel via WS-F's
-  `screenshotSlides`. A 50-slide deck now captures in ~N× less
-  wall-clock than the sequential path.
-- `prez-validate --json`: emits one NDJSON event per `ValidateEvent`
-  (start / slide / diff / warn / error / done) to stdout. Agent
-  consumers can stream progress instead of waiting for a final blob.
-- `prez-validate --json-manifest`: legacy single-JSON-blob output
-  preserved for v1.1 consumers; emits a deprecation notice on stderr.
-- `diffPng` exported from `@enriquefft/prez/node` for programmatic
-  diffing. Depends on `pngjs`.
 
 ### Fixed
 - `prez-validate --clean` now uses `safeCleanScreenshotsDir` (WS-A):

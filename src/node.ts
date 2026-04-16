@@ -67,7 +67,13 @@ export type ValidateEvent =
       slide: ExternalSlideNumber
       baseline: string
       current: string
-      diffPath: string
+      /**
+       * Absolute path of the `diff-NN.png` heatmap when `pass === false`;
+       * `null` when `pass === true`. Passing slides never write a heatmap,
+       * so consumers that `stat(diffPath)` unconditionally would otherwise
+       * hit ENOENT on every clean run.
+       */
+      diffPath: string | null
       diffRatio: number
       pass: boolean
     }

@@ -56,7 +56,13 @@ export interface ValidateDiffEntry {
   slide: number
   baseline: string
   current: string
-  diffPath: string
+  /**
+   * Absolute path of the `diff-NN.png` heatmap when `pass === false`;
+   * `null` when `pass === true`. Heatmaps are only written for failing
+   * slides — this field mirrors that reality so consumers never stat a
+   * non-existent path.
+   */
+  diffPath: string | null
   diffRatio: number
   pass: boolean
 }
@@ -256,8 +262,13 @@ export async function validateScreenshots(
       }
 
       const pass = result.diffRatio <= diffThreshold
-      const diffPath = join(outputDir, diffFilename(slide, totalSlides))
-      if (!pass) {
+      // Only write a heatmap for failing slides. The event's diffPath
+      // reflects that: `null` when no file was written, the absolute
+      // path otherwise. Agents that stat(diffPath) can trust it exists.
+      const diffPath = pass
+        ? null
+        : join(outputDir, diffFilename(slide, totalSlides))
+      if (!pass && diffPath !== null) {
         writeFileSync(diffPath, result.diffPng)
         diffFailures++
       }
