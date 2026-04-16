@@ -14,6 +14,8 @@ export {
   ChromeCdpError,
   ChromeSession,
 } from './scripts/chrome-cdp'
+export type { DiffOptions, DiffResult } from './scripts/diff-screenshots'
+export { diffPng } from './scripts/diff-screenshots'
 export type {
   ParallelScreenshotOptions,
   ParallelScreenshotResult,

@@ -1,5 +1,6 @@
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { printUrl as buildPrintUrl } from '../render-modes.js'
 import { getChrome } from './find-chrome'
 import { runChromeAsync } from './run-chrome'
 
@@ -10,7 +11,7 @@ export async function exportPdf(
   timeout = 30000,
 ): Promise<void> {
   const chrome = getChrome()
-  const printUrl = `${url}?print=true`
+  const printUrl = buildPrintUrl(url)
 
   console.log(`Exporting PDF from ${printUrl}`)
 

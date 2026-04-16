@@ -26,6 +26,7 @@ This is an **npm package** (not an app). It ships two things:
    - `prez init` — scaffolds a `deck/` folder from `template/` via interactive wizard. Supports `--yes` for CI.
    - `prez-image` — AI image generation, photo search, SVG rendering.
    - `prez-export` — Export deck to PDF/PPTX. Auto-serves dist/, runs Chrome headless.
+   - `prez-validate` — Screenshot each slide for visual validation; optional `--diff` against a baseline, `--concurrency` for parallel capture, `--json` for NDJSON event streaming, `--watch` for auto-recapture on `src/` changes.
 
 ### Build
 
@@ -91,9 +92,23 @@ Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project with P
 
 Export uses system Chrome headless (no Puppeteer dependency), orchestrated by `prez-export` CLI:
 - PDF: Deck renders `?print=true` mode (all slides stacked with page-break CSS in mm units), Chrome `--print-to-pdf` captures it
-- PPTX: Chrome screenshots each slide via `--screenshot`, then pptxgenjs assembles the PPTX
+- PPTX: Chrome screenshots each slide via `ChromeSession.screenshot` (CDP from WS-F), then pptxgenjs assembles the PPTX
 - Chrome detection: `find-chrome.ts` checks standard paths, respects `CHROME_PATH` env var
 - Auto-serve: `prez-export` starts a temp static server from `dist/` on a random port, no manual server needed
+
+### Validate CLI (`prez-validate`)
+
+Visual regression + screenshot pipeline for agents:
+- `prez-validate` — screenshot every slide to `./screenshots/slide-NN.png`
+- `prez-validate --slide 3` — only slide 3 (1-based)
+- `prez-validate --diff baseline/` — pixel-diff each screenshot against `baseline/slide-NN.png`; writes `diff-NN.png` heatmaps; exits 2 on threshold failures
+- `prez-validate --threshold 0.01` — max diff ratio before a slide fails (default 0.005)
+- `prez-validate --concurrency 4` — parallel capture via WS-F pool (default `min(cpus, 8)`, clamp `[1, 16]`)
+- `prez-validate --json` — NDJSON `ValidateEvent` stream (`start` / `slide` / `diff` / `warn` / `error` / `done`) on stdout
+- `prez-validate --json-manifest` — legacy single-blob JSON (deprecated)
+- `prez-validate --watch --build` — Node 22 recursive `fs.watch` on `src/`, debounce 500ms, rebuild + re-capture each cycle
+- `prez-validate --clean` — uses `safeCleanScreenshotsDir` (refuses to touch anything outside cwd/tmpdir, pattern-restricted to `slide-*.png` / `diff-*.png`)
+- Exit codes: `0` all-green, `1` capture failure, `2` diff threshold exceeded
 
 ### Key design decisions
 

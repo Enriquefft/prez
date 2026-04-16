@@ -80,8 +80,44 @@ screenshot engine) build on.
 - `prez init --no-skills`: skip the Claude-skills install step in
   non-interactive (`--yes`) and interactive runs. Pre-answers the
   interactive confirm prompt when present on argv.
+- `prez-validate --diff <baseline-dir>`: pixel-perfect visual regression.
+  Per-slide Euclidean RGB diff with configurable `--threshold`
+  (default 0.5%). Diverging slides get a `diff-NN.png` heatmap written
+  alongside the new screenshot. Exits 2 if any slide exceeds threshold
+  — directly wire-able into agent review loops.
+- `prez-validate --watch` (requires `--build`): re-captures screenshots
+  on `src/` changes via Node 22's recursive `fs.watch`. Persistent
+  static server across rebuilds; SIGINT cleans up watcher + server.
+- `prez-validate --concurrency N` (default `min(cpus, 8)`, clamp
+  `[1, 16]`): captures slides in parallel via WS-F's
+  `screenshotSlides`. A 50-slide deck now captures in ~N× less
+  wall-clock than the sequential path.
+- `prez-validate --json`: emits one NDJSON event per `ValidateEvent`
+  (start / slide / diff / warn / error / done) to stdout. Agent
+  consumers can stream progress instead of waiting for a final blob.
+- `prez-validate --json-manifest`: legacy single-JSON-blob output
+  preserved for v1.1 consumers; emits a deprecation notice on stderr.
+- `diffPng` exported from `@enriquefft/prez/node` for programmatic
+  diffing. Depends on `pngjs`.
 
 ### Fixed
+- `prez-validate --clean` now uses `safeCleanScreenshotsDir` (WS-A):
+  refuses `/`, `$HOME`, cwd, ancestors of cwd, and paths outside
+  `cwd`/`os.tmpdir()`. Deletes only files matching `slide-NN.png`
+  or `diff-NN.png`.
+- `prez-validate --slide N` now validates the range against
+  `getSlideCount()` before launching the per-slide Chrome loop.
+  Invalid inputs fail before any heavyweight work begins.
+- `prez-validate` SIGINT/SIGTERM handler closes the static server
+  and (in `--watch` mode) the file-watcher cleanly. No orphaned
+  Chromes on ctrl-C.
+- `src/scripts/export-pdf.ts`: inline `?print=true` replaced with
+  canonical `printUrl` helper (SSOT drift pre-existing from WS-A
+  era — flagged by Phase 3 reviewer).
+- `CLAUDE.md` updated for the v1.2 surface: `prez-validate` CLI
+  documented; `prez-export` default `--output` corrected to
+  `./dist/`; PPTX pipeline description updated to reference CDP
+  (was stale `--screenshot`).
 - `Deck` gained a `?screenshot=N` render mode: renders a single slide
   at exact 1280×720 pixels with no aspect-ratio scaling container,
   no outer 100vw/100vh wrapper, and no interactive chrome. The
