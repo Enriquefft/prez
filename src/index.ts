@@ -6,4 +6,14 @@ export type { SlideProps } from './components/Slide'
 export { Slide } from './components/Slide'
 export type { DeckContextValue } from './context'
 export { useDeck } from './context'
+export type {
+  ExternalSlideNumber,
+  InternalSlideIndex,
+} from './slide-index'
+export {
+  asExternal,
+  asInternal,
+  toExternal,
+  toInternal,
+} from './slide-index'
 export { symbols } from './symbols'
