@@ -10,7 +10,7 @@
     "export": "prez-export",
     "export:pdf": "prez-export pdf",
     "export:pptx": "prez-export pptx",
-    "build:export": "vite build && prez-export --output dist/"
+    "build:export": "vite build && prez-export"
   },
   "dependencies": {
     "@enriquefft/prez": "^1.0.0",

@@ -7,53 +7,95 @@ import {
   startStaticServer,
   waitForServer,
 } from '../scripts/serve-dist.js'
+import { SLIDE_INDEX_DOCS } from '../slide-index.js'
+import { die, type HelpSpec, handleGlobalFlags, warn } from './_cli-kit.js'
 
-const USAGE = `prez-export - Export presentations to PDF and PPTX
+const HELP_SPEC: HelpSpec = {
+  name: 'prez-export',
+  summary: 'Export presentations to PDF and PPTX',
+  usage: ['prez-export [pdf|pptx|both] [options]'],
+  sections: [
+    {
+      title: 'Commands',
+      rows: [
+        ['pdf', 'Export only PDF'],
+        ['pptx', 'Export only PPTX'],
+        ['both', 'Export PDF and PPTX (default)'],
+      ],
+    },
+    {
+      title: 'Options',
+      rows: [
+        ['--url <url>', 'URL of running dev/preview server (skip auto-serve)'],
+        ['-o, --output <dir>', 'Output directory (default: ./dist/)'],
+        ['--build', 'Run build before exporting'],
+        [
+          '--base <path>',
+          'Base URL path override (default: auto-detect from vite.config)',
+        ],
+        ['--timeout <ms>', 'Chrome timeout in ms (default: 30000)'],
+        ['-h, --help', 'Show this help and exit'],
+        ['-V, --version', 'Print version and exit'],
+      ],
+    },
+    {
+      title: 'Examples',
+      rows: [
+        ['prez-export', 'Export both PDF and PPTX to ./dist/'],
+        ['prez-export pdf', 'Export only PDF'],
+        ['prez-export pptx -o out/', 'Export PPTX to out/'],
+        [
+          'prez-export --url http://localhost:5173',
+          'Export from running server',
+        ],
+        ['prez-export --build', 'Build first, then export'],
+      ],
+    },
+  ],
+  footer: SLIDE_INDEX_DOCS,
+}
 
-Usage:
-  prez-export [pdf|pptx]           Export PDF, PPTX, or both (default: both)
-
-Options:
-  --url <url>                      URL of running dev/preview server (skip auto-serve)
-  -o, --output <dir>               Output directory (default: ./public/)
-  --build                          Run build before exporting
-  --base <path>                    Base URL path override (default: auto-detect from vite.config)
-  --timeout <ms>                   Chrome timeout in ms (default: 30000)
-
-Examples:
-  prez-export                      Export both PDF and PPTX to ./public/
-  prez-export pdf                  Export only PDF
-  prez-export pptx -o dist/        Export PPTX to dist/
-  prez-export --url http://localhost:5173   Export from running server
-  prez-export --build              Build first, then export
-`
-
-interface Args {
+export interface ExportArgs {
   format: 'pdf' | 'pptx' | 'both'
   url?: string
   output: string
+  outputExplicit: boolean
   build: boolean
   base?: string
   timeout: number
 }
 
-function parseArgs(argv: string[]): Args {
+export const DEFAULT_OUTPUT_DIR = './dist'
+
+/**
+ * Pure argv parser. Exported for unit tests; `main()` is the only production
+ * caller. Global flags (--help, --version, -h, -V) are acknowledged here
+ * silently because `handleGlobalFlags` already processes them before this
+ * function runs and would have exited the process; treating them as noop
+ * keeps the parser total over any argv shape.
+ */
+export function parseExportArgs(argv: string[]): ExportArgs {
   const args = argv.slice(2)
 
   let format: 'pdf' | 'pptx' | 'both' = 'both'
   let url: string | undefined
-  let output = './public'
+  let output: string = DEFAULT_OUTPUT_DIR
+  let outputExplicit = false
   let build = false
   let base: string | undefined
   let timeout = 30000
 
   for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
+    const arg = args[i]
+    switch (arg) {
       case 'pdf':
         format = 'pdf'
         break
       case 'pptx':
         format = 'pptx'
+        break
+      case 'both':
+        format = 'both'
         break
       case '--url':
         url = args[++i]
@@ -61,6 +103,7 @@ function parseArgs(argv: string[]): Args {
       case '-o':
       case '--output':
         output = args[++i]
+        outputExplicit = true
         break
       case '--build':
         build = true
@@ -68,26 +111,52 @@ function parseArgs(argv: string[]): Args {
       case '--base':
         base = args[++i]
         break
-      case '--timeout':
-        timeout = Number.parseInt(args[++i], 10)
+      case '--timeout': {
+        const raw = args[++i]
+        const parsed = Number.parseInt(raw, 10)
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          die(`Error: --timeout requires a positive integer, got '${raw}'`)
+        }
+        timeout = parsed
         break
+      }
       case '--help':
       case '-h':
-        console.log(USAGE)
-        process.exit(0)
+      case '--version':
+      case '-V':
+        // Handled by handleGlobalFlags at main() entry.
+        break
+      default:
+        die(`Error: unknown argument '${arg}' (see --help)`)
     }
   }
 
-  return { format, url, output, build, base, timeout }
+  return { format, url, output, outputExplicit, build, base, timeout }
+}
+
+/**
+ * Emit a one-shot stderr notice when the user relies on the default --output
+ * but their cwd layout matches the pre-v1.2 convention (./public/ exists,
+ * ./dist/ does not). Visible to the agent before the run starts so the path
+ * change is never silent.
+ */
+function maybeEmitLegacyPublicNotice(args: ExportArgs): void {
+  if (args.outputExplicit) return
+  const cwd = process.cwd()
+  const publicExists = existsSync(resolve(cwd, 'public'))
+  const distExists = existsSync(resolve(cwd, 'dist'))
+  if (publicExists && !distExists) {
+    warn(
+      'Note: prez-export default output changed to ./dist/ in v1.2 (was ./public/). Pass --output ./public/ to restore the previous behavior.',
+    )
+  }
 }
 
 async function main() {
-  const args = parseArgs(process.argv)
+  handleGlobalFlags(process.argv, HELP_SPEC)
 
-  if (!args.format) {
-    console.log(USAGE)
-    return
-  }
+  const args = parseExportArgs(process.argv)
+  maybeEmitLegacyPublicNotice(args)
 
   const distDir = resolve(process.cwd(), 'dist')
 
@@ -104,11 +173,9 @@ async function main() {
 
   if (!serverUrl) {
     if (!existsSync(distDir)) {
-      console.error('Error: dist/ not found.')
-      console.error(
-        '  Run "bun run build" first, or pass --build to build automatically.',
+      die(
+        'Error: dist/ not found.\n  Run "bun run build" first, or pass --build to build automatically.',
       )
-      process.exit(1)
     }
 
     const basePath = args.base || detectBasePath()
@@ -151,6 +218,5 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`Export failed: ${err.message}`)
-  process.exit(1)
+  die(`Export failed: ${err instanceof Error ? err.message : String(err)}`)
 })

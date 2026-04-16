@@ -50,6 +50,22 @@ screenshot engine) build on.
 - Minimum Node version raised from 18 to 22 (LTS through April 2027).
   Enables native WebSocket for the WS-F CDP client and drops several
   `node-fetch`-era shim concerns.
+- `prez-export` default `--output` is now `./dist/` (was `./public/`).
+  Rationale: aligns with the canonical `build:export` workflow and with
+  Vite's `public/` input-dir semantics (files under `public/` are copied
+  into `dist/` at build time, so writing export artifacts into `public/`
+  was always either committed noise or double-copied output). **Breaking
+  for users relying on the old default** — pass `--output ./public/`
+  explicitly to restore the previous behavior. When the user does not
+  pass `--output` and the cwd still has the legacy `./public/` layout
+  (with no `./dist/`), `prez-export` emits a one-time stderr notice so
+  the path change is never silent.
+- `prez-export` and `prez-validate` now share Chrome-path logging via
+  `src/scripts/find-chrome.ts`: the resolved Chrome binary is announced
+  exactly once per process, with source annotation
+  (`(from CHROME_PATH)` or `(auto-detected)`). Inline
+  `console.log('Using: ...')` removed from export-pdf.ts; every
+  Chrome-using CLI gets the same log line on stderr.
 - `prez init` Claude skills now install to `<target>/.claude/skills/`
   (deck-local) instead of `<cwd>/.claude/skills/`. Skills travel with
   the deck and do not leak into the parent directory when scaffolding
@@ -60,18 +76,35 @@ screenshot engine) build on.
   --height."` (exit code 2). **Breaking** for callers using
   `-h <px>` — replace with `--height <px>`.
 
-### Added
+### Added (continued)
 - `prez init --no-skills`: skip the Claude-skills install step in
   non-interactive (`--yes`) and interactive runs. Pre-answers the
   interactive confirm prompt when present on argv.
 
+### Fixed
+- `src/scripts/serve-dist.ts` path-traversal check replaced. The
+  prefix-only `filePath.startsWith(distDir)` test falsely accepted
+  sibling-prefix paths (e.g. with `distDir=/tmp/dist`, any
+  `/tmp/dist-evil/...` passed). Now uses `path.relative(distDir, p)`
+  and rejects results that begin with `..` or are absolute, and also
+  realpaths the requested file to catch symlink escapes.
+- Malformed percent-encoded request URLs now return 400 instead of
+  propagating a `URIError` up to an uncaught exception handler.
+
 ### Internal
 - `src/cli/_cli-kit.ts`: unified `--help` / `--version` / `die()` for
   every `prez-*` binary. `package.json` is now the sole version source,
-  read once at module load via `fileURLToPath(import.meta.url)`.
-- `prez init` and `prez-image` migrated to `_cli-kit.ts`. Inline USAGE
-  strings removed; help is a typed `HelpSpec` with consistent section
-  names across every CLI. `--version` / `-V` available everywhere.
+  read once at module load via `fileURLToPath(import.meta.url)`. Adds
+  `warn(msg)` for non-fatal stderr notices (used by the `./public/` →
+  `./dist/` migration hint).
+- `prez init`, `prez-image`, and `prez-export` CLIs migrated to
+  `_cli-kit.ts`. Inline USAGE strings removed; help is a typed
+  `HelpSpec` with consistent section names across every CLI and
+  `SLIDE_INDEX_DOCS` appended as the footer so every CLI surface
+  documents the 1-based convention identically. `--version` / `-V`
+  available everywhere.
+- `template/package.json`: `build:export` simplified — the redundant
+  `--output dist/` flag is dropped now that `./dist/` is the default.
 
 ## [1.0.0] - 2026-03-21
 

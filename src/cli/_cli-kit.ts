@@ -128,3 +128,12 @@ export function die(msg: string, code = 1): never {
   process.stderr.write(`${msg}\n`)
   process.exit(code)
 }
+
+/**
+ * Write a non-fatal advisory to stderr. Unlike `die`, this does not exit and
+ * returns void. Used for one-shot migration notices or soft-deprecation hints
+ * that should not be mistaken for fatal errors.
+ */
+export function warn(msg: string): void {
+  process.stderr.write(`${msg}\n`)
+}

@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, isAbsolute, join, relative, resolve } from 'node:path'
 
 export const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -24,38 +24,87 @@ export const MIME_TYPES: Record<string, string> = {
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
 
+/**
+ * Canonical containment check. A path is "inside" `dir` iff
+ * `path.relative(dir, p)` neither begins with `..` nor is absolute.
+ *
+ * Prefix matching (`p.startsWith(dir)`) is unsound: given `dir=/tmp/dist`,
+ * it falsely accepts `/tmp/dist-evil/foo` because string prefixes do not
+ * respect path separators. The `relative()`-based form is robust against
+ * that sibling-prefix attack and against platform-dependent separators.
+ *
+ * Symlinks that escape `dir` are caught by a separate realpath check at
+ * serve time — see the request handler below.
+ */
+export function isInsideDir(dir: string, candidate: string): boolean {
+  const rel = relative(dir, candidate)
+  if (rel === '') return true
+  if (rel.startsWith('..')) return false
+  if (isAbsolute(rel)) return false
+  return true
+}
+
 export function startStaticServer(
   distDir: string,
   basePath: string,
 ): Promise<{ server: Server; url: string }> {
+  // Canonicalize once so the containment check compares realpath-to-realpath.
+  // If distDir itself is a symlink, we must resolve it before comparing.
+  const canonicalDistDir = existsSync(distDir)
+    ? realpathSync(resolve(distDir))
+    : resolve(distDir)
   return new Promise((res) => {
     const base = basePath.endsWith('/') ? basePath : `${basePath}/`
 
     const server = createServer((req, reply) => {
-      let pathname = decodeURIComponent(req.url?.split('?')[0] || '/')
+      let pathname: string
+      try {
+        pathname = decodeURIComponent(req.url?.split('?')[0] || '/')
+      } catch {
+        // Malformed percent-encoding (e.g. a lone '%') cannot be a valid path.
+        reply.writeHead(400)
+        reply.end()
+        return
+      }
 
       if (base !== '/' && pathname.startsWith(base)) {
         pathname = pathname.slice(base.length - 1) || '/'
       }
 
-      const filePath = normalize(
-        join(distDir, pathname === '/' ? 'index.html' : pathname),
+      const filePath = resolve(
+        canonicalDistDir,
+        `.${pathname === '/' ? '/index.html' : pathname}`,
       )
 
-      if (!filePath.startsWith(distDir)) {
+      if (!isInsideDir(canonicalDistDir, filePath)) {
         reply.writeHead(403)
         reply.end()
         return
       }
 
       if (existsSync(filePath) && statSync(filePath).isFile()) {
+        // Resolve symlinks and re-check containment. A symlink inside dist
+        // that points outside dist must never leak its target.
+        let realPath: string
+        try {
+          realPath = realpathSync(filePath)
+        } catch {
+          reply.writeHead(404)
+          reply.end()
+          return
+        }
+        if (!isInsideDir(canonicalDistDir, realPath)) {
+          reply.writeHead(403)
+          reply.end()
+          return
+        }
         const ext = extname(filePath).toLowerCase()
         reply.writeHead(200, {
           'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
         })
-        reply.end(readFileSync(filePath))
+        reply.end(readFileSync(realPath))
       } else {
-        const indexPath = join(distDir, 'index.html')
+        const indexPath = join(canonicalDistDir, 'index.html')
         if (existsSync(indexPath)) {
           reply.writeHead(200, { 'Content-Type': 'text/html' })
           reply.end(readFileSync(indexPath))

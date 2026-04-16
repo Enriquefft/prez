@@ -13,7 +13,6 @@ export async function exportPdf(
   const printUrl = `${url}?print=true`
 
   console.log(`Exporting PDF from ${printUrl}`)
-  console.log(`Using: ${chrome}`)
 
   const { stdout } = await runChromeAsync(
     chrome,
