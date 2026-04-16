@@ -33,11 +33,28 @@ screenshot engine) build on.
 - Minimum Node version raised from 18 to 22 (LTS through April 2027).
   Enables native WebSocket for the WS-F CDP client and drops several
   `node-fetch`-era shim concerns.
+- `prez init` Claude skills now install to `<target>/.claude/skills/`
+  (deck-local) instead of `<cwd>/.claude/skills/`. Skills travel with
+  the deck and do not leak into the parent directory when scaffolding
+  from `/tmp` or a monorepo root.
+- `prez-image`: `-h` is now the standard `--help` flag across every
+  `prez-*` binary instead of an alias for `--height`. Passing
+  `-h <number>` now exits with `"-h is reserved for --help. Use
+  --height."` (exit code 2). **Breaking** for callers using
+  `-h <px>` — replace with `--height <px>`.
+
+### Added
+- `prez init --no-skills`: skip the Claude-skills install step in
+  non-interactive (`--yes`) and interactive runs. Pre-answers the
+  interactive confirm prompt when present on argv.
 
 ### Internal
 - `src/cli/_cli-kit.ts`: unified `--help` / `--version` / `die()` for
   every `prez-*` binary. `package.json` is now the sole version source,
   read once at module load via `fileURLToPath(import.meta.url)`.
+- `prez init` and `prez-image` migrated to `_cli-kit.ts`. Inline USAGE
+  strings removed; help is a typed `HelpSpec` with consistent section
+  names across every CLI. `--version` / `-V` available everywhere.
 
 ## [1.0.0] - 2026-03-21
 
