@@ -65,13 +65,13 @@ Generation flags: `--enhance` (AI prompt rewriting), `--negative-prompt`, `--qua
 
 Single command to export presentations to PDF and PPTX. Eliminates the two-terminal workflow.
 
-- `prez-export` — Export both PDF and PPTX to `./public/`
+- `prez-export` — Export both PDF and PPTX to `./dist/`
 - `prez-export pdf` — Export only PDF
 - `prez-export pptx` — Export only PPTX
 - `prez-export --build` — Build first, then export
 - `prez-export --url http://localhost:5173` — Export from running server
 
-Flags: `--output <dir>` (default: `./public/`), `--base <path>`, `--timeout <ms>` (default: 30000)
+Flags: `--output <dir>` (default: `./dist/`), `--base <path>`, `--timeout <ms>` (default: 30000)
 
 Auto-serve mode: when no `--url`, starts a temp static server from `dist/`, runs Chrome, stops server. Requires system Chrome.
 
