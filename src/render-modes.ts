@@ -59,8 +59,15 @@ export function parseRenderMode(search: string): RenderMode {
 }
 
 function appendParam(baseUrl: string, key: string, value: string): string {
-  const sep = baseUrl.includes('?') ? '&' : '?'
-  return `${baseUrl}${sep}${key}=${value}`
+  // Split on the first '#' so the query parameter lands in the URL's
+  // search component, not its fragment. Browsers drop the fragment on
+  // the wire, so `http://x/#/2?foo=1` never reaches the server with
+  // `foo=1` — the query must precede the fragment.
+  const hashIdx = baseUrl.indexOf('#')
+  const head = hashIdx === -1 ? baseUrl : baseUrl.slice(0, hashIdx)
+  const tail = hashIdx === -1 ? '' : baseUrl.slice(hashIdx) // includes '#'
+  const sep = head.includes('?') ? '&' : '?'
+  return `${head}${sep}${key}=${value}${tail}`
 }
 
 export function printUrl(baseUrl: string): string {

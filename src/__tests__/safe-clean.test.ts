@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
@@ -55,6 +56,52 @@ describe('safeCleanScreenshotsDir - happy path', () => {
     const report = safeCleanScreenshotsDir(dir)
     expect(report.deleted).toHaveLength(0)
     expect(report.skipped).toHaveLength(0)
+  })
+})
+
+describe('safeCleanScreenshotsDir - symlink safety', () => {
+  it('does not follow a symlink matching the pattern (target survives)', () => {
+    // If the implementation uses statSync, the symlink would be
+    // stat()'d through to its target: isFile() returns true for the
+    // regular-file target, so unlinkSync would remove the symlink
+    // (not the target — unlink never follows — but we still want to
+    // inspect link metadata, not target metadata). With lstatSync the
+    // link itself is reported as a symlink, isFile() is false, and
+    // the entry is skipped. Either way the target survives; this test
+    // pins that property and also drives the lstatSync-vs-statSync
+    // distinction via the broken-symlink case below.
+    const dir = makeTmp()
+    const targetHolder = makeTmp()
+    const target = join(targetHolder, 'real-target.txt')
+    writeFileSync(target, 'keep-me')
+    try {
+      const link = join(dir, 'slide-99.png')
+      symlinkSync(target, link)
+
+      safeCleanScreenshotsDir(dir)
+
+      // Target must survive regardless of whether the link was removed.
+      expect(existsSync(target)).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+      rmSync(targetHolder, { recursive: true, force: true })
+    }
+  })
+
+  it('does not throw on a broken symlink matching the pattern (lstatSync)', () => {
+    // statSync on a broken symlink throws ENOENT because it follows
+    // the link and tries to stat a nonexistent target. lstatSync
+    // reads link metadata and succeeds. This test would fail with
+    // statSync (unhandled throw) and pass with lstatSync.
+    const dir = makeTmp()
+    try {
+      const link = join(dir, 'slide-77.png')
+      symlinkSync(join(tmpdir(), `prez-nonexistent-${Date.now()}`), link)
+
+      expect(() => safeCleanScreenshotsDir(dir)).not.toThrow()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

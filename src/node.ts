@@ -1,5 +1,10 @@
 export type { RenderMode } from './render-modes'
-export { parseRenderMode, printUrl, screenshotUrl } from './render-modes'
+export {
+  parseRenderMode,
+  presenterUrl,
+  printUrl,
+  screenshotUrl,
+} from './render-modes'
 export type { SafeCleanReport } from './scripts/safe-clean'
 export { safeCleanScreenshotsDir } from './scripts/safe-clean'
 export type {

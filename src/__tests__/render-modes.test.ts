@@ -66,6 +66,21 @@ describe('screenshotUrl', () => {
       'http://x/?foo=1&screenshot=3',
     )
   })
+
+  it('preserves a URL fragment (query must precede #)', () => {
+    // Before the fragment-aware fix the helper produced
+    // 'http://x/#/nav?screenshot=3', which browsers treat as part of
+    // the fragment — the server never sees ?screenshot=3.
+    expect(screenshotUrl('http://x/#/nav', asInternal(3))).toBe(
+      'http://x/?screenshot=3#/nav',
+    )
+  })
+
+  it('preserves a URL fragment when an existing query is present', () => {
+    expect(screenshotUrl('http://x/?foo=1#/nav', asInternal(3))).toBe(
+      'http://x/?foo=1&screenshot=3#/nav',
+    )
+  })
 })
 
 describe('printUrl', () => {
@@ -76,10 +91,37 @@ describe('printUrl', () => {
   it('appends &print=true when an existing query is present', () => {
     expect(printUrl('http://x/?foo=1')).toBe('http://x/?foo=1&print=true')
   })
+
+  it('preserves a URL fragment', () => {
+    expect(printUrl('http://x/#/nav')).toBe('http://x/?print=true#/nav')
+  })
 })
 
 describe('presenterUrl', () => {
   it('appends ?presenter=true', () => {
     expect(presenterUrl('http://x/')).toBe('http://x/?presenter=true')
+  })
+
+  it('preserves a URL fragment', () => {
+    expect(presenterUrl('http://x/#/nav')).toBe('http://x/?presenter=true#/nav')
+  })
+})
+
+describe('node.ts re-exports', () => {
+  it('re-exports presenterUrl from the package node entrypoint', async () => {
+    // Regression: src/node.ts initially re-exported only parseRenderMode,
+    // printUrl, and screenshotUrl — presenterUrl was dead code from the
+    // public package API surface (@enriquefft/prez/node). Downstream
+    // consumers must be able to import presenterUrl from there.
+    const nodeEntry = await import('../node')
+    expect(typeof nodeEntry.presenterUrl).toBe('function')
+    expect(nodeEntry.presenterUrl('http://x/')).toBe('http://x/?presenter=true')
+  })
+
+  it('re-exports printUrl and screenshotUrl from node entrypoint', async () => {
+    const nodeEntry = await import('../node')
+    expect(typeof nodeEntry.printUrl).toBe('function')
+    expect(typeof nodeEntry.screenshotUrl).toBe('function')
+    expect(typeof nodeEntry.parseRenderMode).toBe('function')
   })
 })

@@ -15,7 +15,7 @@
  *     re-using it via `mkdirSync(..., { recursive: true })`.
  */
 
-import { existsSync, readdirSync, statSync, unlinkSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, unlinkSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { parse, resolve, sep } from 'node:path'
 
@@ -127,8 +127,14 @@ export function safeCleanScreenshotsDir(outputDir: string): SafeCleanReport {
       continue
     }
     // Do not follow symlinks, do not descend into subdirs — we only
-    // unlink regular files whose basename matches the pattern.
-    const st = statSync(full)
+    // unlink regular files whose basename matches the pattern. We use
+    // lstatSync (not statSync) so we inspect link metadata, not the
+    // target's: a symlink named `slide-1.png` pointing at /etc/hosts
+    // would pass an `isFile()` check under statSync (target is a
+    // regular file), whereas lstatSync correctly reports it as a
+    // symlink and we skip it. Broken symlinks also do not throw
+    // ENOENT under lstatSync (the link metadata is readable).
+    const st = lstatSync(full)
     if (!st.isFile()) {
       report.skipped.push(full)
       continue
