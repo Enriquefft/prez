@@ -20,11 +20,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: https://registry.npmjs.org
 
       # Trusted publishers (OIDC) require npm >= 11.5.1; node-20 ships
       # an older npm. No NPM_TOKEN — npm exchanges the GitHub OIDC token
-      # for a short-lived publish credential automatically.
+      # for a short-lived publish credential automatically. Do NOT pass
+      # `registry-url` to setup-node: it writes an `_authToken=` line
+      # to .npmrc which (without NODE_AUTH_TOKEN) suppresses OIDC.
       - run: npm install -g npm@latest
 
       - run: bun install --frozen-lockfile
