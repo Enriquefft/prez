@@ -35,4 +35,4 @@ jobs:
       # npx fetches a fresh npm tarball and runs publish from it; that
       # binary has no missing modules and supports OIDC trusted
       # publishers (>= 11.5.1).
-      - run: npx -y npm@latest publish --provenance --access public --loglevel verbose
+      - run: npx -y npm@latest publish --provenance --access public
