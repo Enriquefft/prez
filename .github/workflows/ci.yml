@@ -24,4 +24,11 @@ jobs:
 
       - run: bun run build
 
-      - run: bun test
+      # Split unit tests from Chrome integration tests. The integration
+      # tests unregister happy-dom in beforeAll; Bun's runner doesn't
+      # guarantee they run last, so interleaving with React component
+      # tests leaves React holding a detached document and subsequent
+      # renders commit to a body the test queries can't see. Two
+      # processes = clean isolation.
+      - run: SKIP_CHROME_TESTS=1 bun test
+      - run: bun test src/__tests__/zz-chrome-cdp.test.ts src/__tests__/zz-screenshot-integration.test.ts
