@@ -21,15 +21,6 @@ jobs:
         with:
           node-version: 22
 
-      # Trusted publishers (OIDC) require npm >= 11.5.1; node-20 ships
-      # an older npm. No NPM_TOKEN — npm 11.5.1+ exchanges the GitHub
-      # OIDC token (via ACTIONS_ID_TOKEN_REQUEST_* env vars set by the
-      # `id-token: write` permission) for a short-lived publish
-      # credential. Do NOT use setup-node's `registry-url` — it injects
-      # an empty `_authToken=` which npm treats as "auth configured,
-      # don't try OIDC" and you get 404s on PUT.
-      - run: npm install -g npm@latest
-
       - run: bun install --frozen-lockfile
 
       - run: bun run build
@@ -38,13 +29,10 @@ jobs:
       # where to negotiate the OIDC exchange; no auth lines.
       - run: echo "registry=https://registry.npmjs.org/" > .npmrc
 
-      - run: |
-          echo "=== npm version ==="
-          npm --version
-          which npm
-          echo "=== OIDC env ==="
-          env | grep -i 'ACTIONS_ID_TOKEN\|GITHUB_REPO\|GITHUB_REF' | sed 's/=.*/=<redacted>/'
-          echo "=== npm whoami (pre-publish) ==="
-          npm whoami --registry=https://registry.npmjs.org/ || echo "whoami failed (expected without token; OIDC kicks in at publish)"
-
-      - run: npm publish --provenance --access public --loglevel verbose --loglevel verbose
+      # Use npx to invoke npm@latest directly. Node 22.22.2's bundled
+      # npm is broken (MODULE_NOT_FOUND on its own promise-retry dep)
+      # so we cannot rely on `npm install -g npm@latest` to upgrade.
+      # npx fetches a fresh npm tarball and runs publish from it; that
+      # binary has no missing modules and supports OIDC trusted
+      # publishers (>= 11.5.1).
+      - run: npx -y npm@latest publish --provenance --access public --loglevel verbose
