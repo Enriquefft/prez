@@ -38,4 +38,13 @@ jobs:
       # where to negotiate the OIDC exchange; no auth lines.
       - run: echo "registry=https://registry.npmjs.org/" > .npmrc
 
+      - run: |
+          echo "=== npm version ==="
+          npm --version
+          which npm
+          echo "=== OIDC env ==="
+          env | grep -i 'ACTIONS_ID_TOKEN\|GITHUB_REPO\|GITHUB_REF' | sed 's/=.*/=<redacted>/'
+          echo "=== npm config ==="
+          npm config list
+
       - run: npm publish --provenance
