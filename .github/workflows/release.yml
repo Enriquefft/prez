@@ -22,14 +22,20 @@ jobs:
           node-version: 20
 
       # Trusted publishers (OIDC) require npm >= 11.5.1; node-20 ships
-      # an older npm. No NPM_TOKEN — npm exchanges the GitHub OIDC token
-      # for a short-lived publish credential automatically. Do NOT pass
-      # `registry-url` to setup-node: it writes an `_authToken=` line
-      # to .npmrc which (without NODE_AUTH_TOKEN) suppresses OIDC.
+      # an older npm. No NPM_TOKEN — npm 11.5.1+ exchanges the GitHub
+      # OIDC token (via ACTIONS_ID_TOKEN_REQUEST_* env vars set by the
+      # `id-token: write` permission) for a short-lived publish
+      # credential. Do NOT use setup-node's `registry-url` — it injects
+      # an empty `_authToken=` which npm treats as "auth configured,
+      # don't try OIDC" and you get 404s on PUT.
       - run: npm install -g npm@latest
 
       - run: bun install --frozen-lockfile
 
       - run: bun run build
+
+      # Write a minimal .npmrc with just the registry so npm knows
+      # where to negotiate the OIDC exchange; no auth lines.
+      - run: echo "registry=https://registry.npmjs.org/" > .npmrc
 
       - run: npm publish --provenance
