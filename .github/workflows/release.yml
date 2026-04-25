@@ -44,7 +44,7 @@ jobs:
           which npm
           echo "=== OIDC env ==="
           env | grep -i 'ACTIONS_ID_TOKEN\|GITHUB_REPO\|GITHUB_REF' | sed 's/=.*/=<redacted>/'
-          echo "=== npm config ==="
-          npm config list
+          echo "=== npm whoami (pre-publish) ==="
+          npm whoami --registry=https://registry.npmjs.org/ || echo "whoami failed (expected without token; OIDC kicks in at publish)"
 
-      - run: npm publish --provenance
+      - run: npm publish --provenance --access public
