@@ -47,4 +47,4 @@ jobs:
           echo "=== npm whoami (pre-publish) ==="
           npm whoami --registry=https://registry.npmjs.org/ || echo "whoami failed (expected without token; OIDC kicks in at publish)"
 
-      - run: npm publish --provenance --access public --loglevel verbose
+      - run: npm publish --provenance --access public --loglevel verbose --loglevel verbose
