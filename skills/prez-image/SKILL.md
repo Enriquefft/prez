@@ -17,6 +17,12 @@ Get images into prez slides. Three capabilities, one CLI.
 
 > `-h` is `--help`, not `--height`. Use `--height <px>` for image height. `-h 720` will error with exit code 2.
 
+## Prerequisites
+
+`bunx prez-image` resolves `@enriquefft/prez` from the nearest `package.json`. If you don't have a deck yet, scaffold one with `bunx @enriquefft/prez init` — that adds the package as a dependency and installs all three prez skills via the `skills` CLI.
+
+If you arrived here via `bunx skills add Enriquefft/prez` (skills-first flow), continue with `bunx @enriquefft/prez init` from the project root — re-running it is idempotent (skills CLI re-symlinks the same source).
+
 ## When to use
 
 When building slides with prez and you need:

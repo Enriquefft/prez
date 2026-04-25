@@ -88,6 +88,10 @@ Typical workflow: `bun run build:export` builds the app, then exports PDF/PPTX d
 
 Scaffolded by `prez init`. Self-contained Vite + React + Tailwind project with PWA support (manifest.json, fullscreen display, landscape orientation). Users edit `src/slides.tsx` — that's the single file workflow. The template has its own `package.json` with `@enriquefft/prez` as a dependency.
 
+### Skills (`skills/`)
+
+Ships in the npm tarball alongside `dist/` and `template/`. Contains `prez/`, `prez-image/`, `prez-validate/` SKILL.md files. `prez init` delegates installation to `bunx skills add` (vercel-labs/skills CLI), which symlinks them into `<cwd>/.claude/skills/` by default and supports 44 agent targets (Claude Code, Cursor, Cline, Roo, Codex, …) via auto-detection. Skills CLI owns the install layout — no `cpSync` in our code path. Reverse flow also works: `bunx skills add Enriquefft/prez --skill '*'` installs from GitHub directly.
+
 ### Export pipeline
 
 Export uses system Chrome headless (no Puppeteer dependency), orchestrated by `prez-export` CLI:

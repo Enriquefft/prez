@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Foundations for the v1.2 command-surface revision. No consumer code is
-modified in this release; these modules are the single-source-of-truth
-dependencies that downstream workstreams (Deck render-mode fix, validate
-CLI capabilities, export hardening, init/image CLI refresh, parallel
-screenshot engine) build on.
+## [1.2.0] - 2026-04-24
+
+The v1.2 command-surface revision: branded slide-number types, render-mode
+URL contract, defensive screenshot cleaner, NDJSON validate events, native
+CDP screenshot pool, parallel `prez-validate`, pixel-perfect screenshot
+mode, hardened `serve-dist`, unified CLI kit, and — final piece — skill
+distribution via the vercel-labs/skills CLI.
 
 ### Added
 - `ExternalSlideNumber` / `InternalSlideIndex` branded number types with
@@ -88,10 +90,20 @@ screenshot engine) build on.
   (`(from CHROME_PATH)` or `(auto-detected)`). Inline
   `console.log('Using: ...')` removed from export-pdf.ts; every
   Chrome-using CLI gets the same log line on stderr.
-- `prez init` Claude skills now install to `<target>/.claude/skills/`
-  (deck-local) instead of `<cwd>/.claude/skills/`. Skills travel with
-  the deck and do not leak into the parent directory when scaffolding
-  from `/tmp` or a monorepo root.
+- `prez init` skill installation now delegates to the
+  vercel-labs/skills CLI (`bunx skills add`). Skills CLI owns the layout:
+  symlinks by default (single source of truth — package updates
+  propagate), auto-detection across 44 agent targets (Claude Code,
+  Cursor, Cline, Roo, Codex, …), project-scoped `skills-lock.json`.
+  Source argument is the local `skills/` dir inside the installed prez
+  package (now shipped in the npm tarball alongside `dist/` and
+  `template/`), so the install works offline and is implicitly
+  version-pinned to the prez the user is running. Failure surfaces
+  `bunx skills add` stderr verbatim and rolls back the half-scaffolded
+  deck so retries are clean. Reverse path also works:
+  `bunx skills add Enriquefft/prez --skill '*'` installs SKILL.md files
+  from GitHub directly. Each SKILL.md gained a `## Prerequisites` block
+  pointing skills-first users back through `bunx @enriquefft/prez init`.
 - `prez-image`: `-h` is now the standard `--help` flag across every
   `prez-*` binary instead of an alias for `--height`. Passing
   `-h <number>` now exits with `"-h is reserved for --help. Use

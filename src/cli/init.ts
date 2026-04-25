@@ -1,8 +1,10 @@
+import { spawnSync } from 'node:child_process'
 import {
   cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -27,10 +29,7 @@ const INIT_HELP_SPEC: HelpSpec = {
       title: 'Options',
       rows: [
         ['-y, --yes', 'Non-interactive mode (for CI)'],
-        [
-          '--no-skills',
-          'Skip installing Claude skills into <deck>/.claude/skills/',
-        ],
+        ['--no-skills', 'Skip installing Claude skills via the skills CLI'],
         ['-h, --help', 'Show this help and exit'],
         ['-V, --version', 'Print version and exit'],
       ],
@@ -55,19 +54,34 @@ function linkPrezDependency(targetDir: string) {
 }
 
 /**
- * Copy every skill under `prezRoot/skills/` into `<targetDir>/.claude/skills/`.
+ * Delegate skill installation to vercel-labs/skills CLI.
  *
- * Skills belong to the deck they scaffold, not to the cwd the user happened to
- * run `prez init` from. Writing them to cwd leaks a `.claude/` directory into
- * unrelated parent projects when agents run `prez init deck` from their repo
- * root.
+ * Skills CLI owns the install layout: symlinks by default (single source of
+ * truth — package updates propagate), auto-detects 44 agent targets
+ * (Claude Code, Cursor, Cline, Roo, …), writes a project-scoped lockfile.
+ * Source is the local `skills/` dir inside the installed prez package, so
+ * the install works offline and is implicitly version-pinned to the prez
+ * the user is running.
  */
-function installSkills(targetDir: string) {
+function installSkills() {
   const skillsSrc = join(prezRoot, 'skills')
   if (!existsSync(skillsSrc)) return
-  const skillsDest = join(targetDir, '.claude', 'skills')
-  mkdirSync(skillsDest, { recursive: true })
-  cpSync(skillsSrc, skillsDest, { recursive: true })
+  const result = spawnSync(
+    'bunx',
+    ['skills', 'add', skillsSrc, '--skill', '*', '-y'],
+    {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+    },
+  )
+  if (result.error) {
+    throw new Error(`skills CLI failed to launch: ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    const stderr = result.stderr || result.stdout || '(no output)'
+    throw new Error(`skills CLI failed (exit ${result.status}):\n${stderr}`)
+  }
 }
 
 function updateManifest(targetDir: string, name: string) {
@@ -112,14 +126,20 @@ async function main() {
       linkPrezDependency(target)
       updateManifest(target, positionalName || 'deck')
       if (!noSkills) {
-        installSkills(target)
+        try {
+          installSkills()
+        } catch (err) {
+          rmSync(target, { recursive: true, force: true })
+          const msg = err instanceof Error ? err.message : String(err)
+          die(
+            `${msg}\n\nRe-run 'prez init' after fixing, or pass --no-skills to scaffold without skills.`,
+          )
+        }
       }
 
       console.log(`Created presentation at ${target}`)
       if (!noSkills) {
-        console.log(
-          `Installed Claude skills to ${join(target, '.claude', 'skills')}`,
-        )
+        console.log('Installed Claude skills via skills CLI')
       }
       console.log(`\nNext steps:`)
       console.log(`  cd ${positionalName || 'deck'}`)
@@ -159,7 +179,7 @@ async function main() {
               ? Promise.resolve(false)
               : p.confirm({
                   message:
-                    'Install Claude Code skills? (prez + prez-image + prez-validate skills to <deck>/.claude/skills/)',
+                    'Install Claude Code skills via the skills CLI? (symlinks prez + prez-image + prez-validate to ./.claude/skills/)',
                   initialValue: true,
                 }),
         },
@@ -189,7 +209,17 @@ async function main() {
       linkPrezDependency(target)
       updateManifest(target, answers.name)
       if (answers.installSkills) {
-        installSkills(target)
+        try {
+          installSkills()
+        } catch (err) {
+          s.stop('Skills install failed')
+          rmSync(target, { recursive: true, force: true })
+          const msg = err instanceof Error ? err.message : String(err)
+          p.cancel(
+            `${msg}\n\nRe-run 'prez init' after fixing, or pass --no-skills to scaffold without skills.`,
+          )
+          process.exit(1)
+        }
       }
 
       s.stop('Presentation scaffolded')

@@ -11,6 +11,12 @@ metadata:
 
 Create presentations from any codebase. Users describe what they want, you build the slides.
 
+## Prerequisites
+
+`bunx prez-*` commands resolve `@enriquefft/prez` from the nearest `package.json`. If you don't have a deck yet, scaffold one with `bunx @enriquefft/prez init` — that adds the package as a dependency and installs all three prez skills via the `skills` CLI.
+
+If you arrived here via `bunx skills add Enriquefft/prez` (skills-first flow), continue with `bunx @enriquefft/prez init` from the project root — re-running it is idempotent (skills CLI re-symlinks the same source).
+
 ## When to use
 
 When the user asks you to create a presentation, pitch deck, slide deck, or any visual slide-based content from their project.

@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Zero-opinion presentation engine for AI. You bring the content, Claude brings the design.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -29,7 +29,8 @@
   },
   "files": [
     "dist",
-    "template"
+    "template",
+    "skills"
   ],
   "scripts": {
     "prepare": "tsup",

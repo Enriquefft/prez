@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -16,15 +23,34 @@ const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as {
   version: string
 }
 
+/**
+ * Write a `bunx` shim into `dir` that records its argv (newline-delimited)
+ * to `$SHIM_SENTINEL` and exits with `$SHIM_EXIT_CODE` (default 0).
+ * Returns the absolute sentinel path the shim will write to.
+ */
+function installBunxShim(dir: string): string {
+  const shimPath = join(dir, 'bunx')
+  const sentinel = join(dir, 'bunx-invocation.txt')
+  writeFileSync(
+    shimPath,
+    `#!/bin/sh\nprintf '%s\\n' "$@" > "$SHIM_SENTINEL"\nexit \${SHIM_EXIT_CODE:-0}\n`,
+  )
+  chmodSync(shimPath, 0o755)
+  return sentinel
+}
+
 describe('prez init CLI (subprocess)', () => {
   let tmpCwd: string
+  let shimDir: string
 
   beforeEach(() => {
     tmpCwd = mkdtempSync(join(tmpdir(), 'prez-init-'))
+    shimDir = mkdtempSync(join(tmpdir(), 'prez-shim-'))
   })
 
   afterEach(() => {
     rmSync(tmpCwd, { recursive: true, force: true })
+    rmSync(shimDir, { recursive: true, force: true })
   })
 
   it('prez --help exits 0 and prints usage', async () => {
@@ -54,48 +80,80 @@ describe('prez init CLI (subprocess)', () => {
     expect(stdout).toContain(pkg.version)
   })
 
-  it('prez init deck --yes --no-skills scaffolds without skills anywhere', async () => {
+  it('prez init deck --yes --no-skills does not invoke skills CLI', async () => {
+    const sentinel = installBunxShim(shimDir)
     const proc = Bun.spawn(
       ['node', DIST_INIT_CLI, 'init', 'deck', '--yes', '--no-skills'],
-      { cwd: tmpCwd, stdout: 'pipe', stderr: 'pipe' },
+      {
+        cwd: tmpCwd,
+        env: {
+          ...process.env,
+          PATH: `${shimDir}:${process.env.PATH ?? ''}`,
+          SHIM_SENTINEL: sentinel,
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
     )
     const code = await proc.exited
     expect(code).toBe(0)
 
-    // deck/ exists
+    // Deck scaffolded
     expect(existsSync(join(tmpCwd, 'deck'))).toBe(true)
-    // deck-local skills absent (flag honored)
-    expect(existsSync(join(tmpCwd, 'deck', '.claude', 'skills'))).toBe(false)
-    // cwd-rooted skills absent (Issue 4 — skills should never land in cwd)
-    expect(existsSync(join(tmpCwd, '.claude', 'skills'))).toBe(false)
+    // Skills CLI never invoked
+    expect(existsSync(sentinel)).toBe(false)
   })
 
-  it('prez init deck --yes installs skills into <deck>/.claude/skills, not cwd', async () => {
+  it('prez init deck --yes delegates to bunx skills add with expected argv', async () => {
+    const sentinel = installBunxShim(shimDir)
     const proc = Bun.spawn(['node', DIST_INIT_CLI, 'init', 'deck', '--yes'], {
       cwd: tmpCwd,
+      env: {
+        ...process.env,
+        PATH: `${shimDir}:${process.env.PATH ?? ''}`,
+        SHIM_SENTINEL: sentinel,
+      },
       stdout: 'pipe',
       stderr: 'pipe',
     })
     const code = await proc.exited
     expect(code).toBe(0)
 
-    // deck-local skills present
-    expect(
-      existsSync(join(tmpCwd, 'deck', '.claude', 'skills', 'prez', 'SKILL.md')),
-    ).toBe(true)
-    // All three skills travel with the deck
-    expect(
-      existsSync(
-        join(tmpCwd, 'deck', '.claude', 'skills', 'prez-image', 'SKILL.md'),
-      ),
-    ).toBe(true)
-    expect(
-      existsSync(
-        join(tmpCwd, 'deck', '.claude', 'skills', 'prez-validate', 'SKILL.md'),
-      ),
-    ).toBe(true)
-    // cwd-rooted .claude/ MUST NOT exist (Issue 4 regression guard)
-    expect(existsSync(join(tmpCwd, '.claude'))).toBe(false)
+    // Deck scaffolded
+    expect(existsSync(join(tmpCwd, 'deck'))).toBe(true)
+
+    // Skills CLI invoked with the expected argv contract
+    expect(existsSync(sentinel)).toBe(true)
+    const argv = readFileSync(sentinel, 'utf-8').split('\n').filter(Boolean)
+    expect(argv[0]).toBe('skills')
+    expect(argv[1]).toBe('add')
+    expect(argv[2]).toMatch(/skills$/)
+    expect(existsSync(argv[2])).toBe(true)
+    expect(argv).toContain('--skill')
+    expect(argv).toContain('*')
+    expect(argv).toContain('-y')
+  })
+
+  it('prez init deck --yes hard-fails and rolls back deck when skills CLI exits non-zero', async () => {
+    const sentinel = installBunxShim(shimDir)
+    const proc = Bun.spawn(['node', DIST_INIT_CLI, 'init', 'deck', '--yes'], {
+      cwd: tmpCwd,
+      env: {
+        ...process.env,
+        PATH: `${shimDir}:${process.env.PATH ?? ''}`,
+        SHIM_SENTINEL: sentinel,
+        SHIM_EXIT_CODE: '1',
+      },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const code = await proc.exited
+    expect(code).not.toBe(0)
+    const stderr = await new Response(proc.stderr).text()
+    expect(stderr).toContain('skills CLI failed')
+    expect(stderr).toContain('--no-skills')
+    // Rollback: half-scaffolded deck removed so user can retry cleanly
+    expect(existsSync(join(tmpCwd, 'deck'))).toBe(false)
   })
 
   it('prez init existingDir --yes errors non-zero and does not overwrite', async () => {
